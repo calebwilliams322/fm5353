@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MonteCarloOptionPricer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dce330f1e72b9b0e70666710710cdce5d46922bc")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+058d8d0db9aedd1c335639f8226494bb20e37a7b")]
 [assembly: System.Reflection.AssemblyProductAttribute("MonteCarloOptionPricer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MonteCarloOptionPricer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
