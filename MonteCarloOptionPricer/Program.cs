@@ -39,7 +39,7 @@ namespace MonteCarloOptionPricer
             double riskFreeRate = ReadDouble("Enter risk-free rate (e.g., 0.05 for 5%):", 0.05);
             int timeSteps = ReadInt("Enter number of time steps per path:", 100);
             int numberOfPaths = ReadInt("Enter number of simulation paths:", 10000);
-            int simChoice = ReadInt("Choose simulation mode (1=Plain, 2=Antithetic, 3=Van der Corput, 4=ControlVariate) [default=1]:",
+            int simChoice = ReadInt("Choose simulation mode (1=Plain, 2=Antithetic, 3=Van der Corput, 4=ControlVariate, 5=Antithetic and ControlVariate) [default=1]:",
                     1);
 
                 SimulationMode simMode;
@@ -53,6 +53,9 @@ namespace MonteCarloOptionPricer
                         break;
                     case 4:
                         simMode = SimulationMode.ControlVariate;
+                        break;
+                    case 5:
+                        simMode = SimulationMode.Antithetic_and_ControlVariate;
                         break;
                     default:
                         simMode = SimulationMode.Plain;

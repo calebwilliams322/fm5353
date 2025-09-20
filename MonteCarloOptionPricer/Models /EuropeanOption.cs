@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MonteCarloOptionPricer.Simulation;
+using System.Linq;
 
 namespace MonteCarloOptionPricer.Models
 {
@@ -36,6 +37,8 @@ namespace MonteCarloOptionPricer.Models
             {
                 InitialPrice   = Stock.Price,
                 Volatility     = volatility,
+                Strike = this.Strike,
+                isCall = this.IsCall,
                 RiskFreeRate   = riskFreeRate,
                 TimeToExpiry   = TimeToExpiryYears(),
                 TimeSteps      = timeSteps,
@@ -65,6 +68,8 @@ namespace MonteCarloOptionPricer.Models
             {
                 InitialPrice  = Stock.Price,
                 Volatility    = volatility,
+                Strike = this.Strike,
+                isCall = this.IsCall,
                 RiskFreeRate  = riskFreeRate,
                 TimeToExpiry  = (Expiry - DateTime.Today).TotalDays / 365.0,
                 TimeSteps     = timeSteps,
@@ -93,25 +98,39 @@ namespace MonteCarloOptionPricer.Models
                 double meanPnL = pnlHedges.Average();
                 double meanPayoffPnL = simplePayoffs.Zip(pnlHedges, (x, y) => x * y).Average();
                 double meanPnLSq = pnlHedges.Average(y => y * y);
-                Console.WriteLine(
-                    "First 20 pnHedges = " + 
-                    string.Join(", ", pnlHedges.Take(20))
-                );
-                Console.WriteLine($"meanX   = {meanPayoff}");
-                Console.WriteLine($"meanY   = {meanPnL}");
-                Console.WriteLine($"E[XY]   = {meanPayoffPnL}");
-                Console.WriteLine($"E[Y^2]  = {meanPnLSq}");
+
                 double cov = meanPayoffPnL - meanPayoff * meanPnL;
                 double var = meanPnLSq - meanPnL * meanPnL;
-                Console.WriteLine($"covXY   = {cov}");
-                Console.WriteLine($"varY    = {var}");
+
 
                 double c = (var != 0.0) ? cov / var : 0.0;
-                Console.WriteLine(c);
 
                 payoffs = simplePayoffs.Zip(pnlHedges, (x, y) => x - c * (y - meanPnL)).ToList();
                 avgPayoff = payoffs.Average();
-               
+
+            }
+            else if (p.SimMode == SimulationMode.Antithetic_and_ControlVariate)
+            {
+                seed = new Random().Next();
+                RandomNumberGenerator.Seed(seed);
+                var (terminalPrices, pnlHedges) = MonteCarloSimulator.SimulateAntitheticControlVariateTerminals(p);
+                var simplePayoffs = BuildPayoffs(terminalPrices, p);
+
+                // Control variate adjustment
+                double meanPayoff = simplePayoffs.Average();
+                double meanPnL = pnlHedges.Average();
+                double meanPayoffPnL = simplePayoffs.Zip(pnlHedges, (x, y) => x * y).Average();
+                double meanPnLSq = pnlHedges.Average(y => y * y);
+
+                double cov = meanPayoffPnL - meanPayoff * meanPnL;
+                double var = meanPnLSq - meanPnL * meanPnL;
+
+
+                double c = (var != 0.0) ? cov / var : 0.0;
+
+                payoffs = simplePayoffs.Zip(pnlHedges, (x, y) => x - c * (y - meanPnL)).ToList();
+                avgPayoff = payoffs.Average();
+                
             }
             else
             {
@@ -298,6 +317,8 @@ namespace MonteCarloOptionPricer.Models
             {
                 InitialPrice  = p.InitialPrice,
                 Volatility    = p.Volatility,
+                Strike = p.Strike,
+                isCall = p.isCall,
                 RiskFreeRate  = p.RiskFreeRate,
                 TimeToExpiry  = p.TimeToExpiry,
                 TimeSteps     = p.TimeSteps,

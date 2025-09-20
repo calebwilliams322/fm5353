@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 using MonteCarloOptionPricer.Models;
 
 
@@ -31,6 +32,9 @@ namespace MonteCarloOptionPricer.Simulation
                 case SimulationMode.ControlVariate:
                     var (terminalPrices, _) = SimulateControlVariateTerminals(parameters);
                     return terminalPrices;
+                case SimulationMode.Antithetic_and_ControlVariate:
+                    var (terminalPrices2, _) = SimulateAntitheticControlVariateTerminals(parameters);
+                    return terminalPrices2;
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(parameters.SimMode), parameters.SimMode, "Unsupported simulation mode");
@@ -190,10 +194,7 @@ namespace MonteCarloOptionPricer.Simulation
 
                     t = step * dt;
                     double delta = BlackScholesDelta(s, t, parameters);
-                    if (step < 10)
-                    {
-                        Console.WriteLine(delta);
-                    }
+
 
                     // Rebalance hedge: buy/sell shares, adjust cash
                     double dDelta = delta - deltaPrev;
@@ -205,6 +206,74 @@ namespace MonteCarloOptionPricer.Simulation
                 // At expiry: unwind hedge
                 cash += deltaPrev * s; // Close hedge
                 pnl = cash; // This is the PnL of the hedged portfolio (option payoff to be added outside)
+                terminalPrices.Add(s);
+                pnlHedges.Add(discount * pnl);
+            }
+  
+            return (terminalPrices, pnlHedges);
+        }
+
+
+
+
+        /// <summary>
+        /// Utilizes antithetic sampling and control variate techniques to minimize variance
+        /// <sumary>
+        public static (List<double> terminalPrices, List<double> pnlHedges) SimulateAntitheticControlVariateTerminals(PricingParameters parameters)
+         {
+            var terminalPrices = new List<double>(parameters.NumberOfPaths);
+            var pnlHedges = new List<double>(parameters.NumberOfPaths);
+
+            int steps = parameters.TimeSteps;
+            double dt = parameters.TimeToExpiry / steps;
+            double driftStep = (parameters.RiskFreeRate - 0.5 * parameters.Volatility * parameters.Volatility) * dt;
+            double volSqrtDt = parameters.Volatility * Math.Sqrt(dt);
+            double discount = Math.Exp(-parameters.RiskFreeRate * parameters.TimeToExpiry);
+
+            for (int path = 0; path < parameters.NumberOfPaths; path++)
+            {
+                double s = parameters.InitialPrice;
+                double t = 0.0;
+                double deltaPrev = BlackScholesDelta(s, t, parameters);
+
+                // Initial hedge: short delta shares, invest proceeds at risk-free rate
+                double cash = -deltaPrev * s;
+
+                int step = 1;
+                while (step <= steps)
+                {
+                    // Get an antithetic pair
+                    var (z1, z2) = RandomNumberGenerator.NextTwoStandardNormals();
+
+                    // ---- Step using z1 ----
+                    s *= Math.Exp(driftStep + volSqrtDt * z1);
+                    t = step * dt;
+
+                    double delta = BlackScholesDelta(s, t, parameters);
+                    double dDelta = delta - deltaPrev;
+                    cash -= dDelta * s;
+                    deltaPrev = delta;
+
+                    step++;
+
+                    // ---- If another step remains, use z2 immediately ----
+                    if (step <= steps)
+                    {
+                        s *= Math.Exp(driftStep + volSqrtDt * z2);
+                        t = step * dt;
+
+                        delta = BlackScholesDelta(s, t, parameters);
+                        dDelta = delta - deltaPrev;
+                        cash -= dDelta * s;
+                        deltaPrev = delta;
+
+                        step++;
+                    }
+                }
+
+                // Unwind hedge at expiry
+                cash += deltaPrev * s;     // close hedge
+                double pnl = cash;         // hedged-portfolio PnL (option payoff added outside if desired)
 
                 terminalPrices.Add(s);
                 pnlHedges.Add(discount * pnl);
@@ -212,6 +281,8 @@ namespace MonteCarloOptionPricer.Simulation
 
             return (terminalPrices, pnlHedges);
         }
+
+        
 
 
 
@@ -370,44 +441,54 @@ namespace MonteCarloOptionPricer.Simulation
 
 
         /// <summary>
-        /// Approximate Black Scholes Delta Using ERF
+        /// Normal CDF approximation  (rational approximation by Abramowitz-Stegun)
         /// </summary>
+        private static double NormalCdf(double x)
+        {
+            // Symmetry for numerical stability: Φ(-x) = 1 − Φ(x)
+            if (x < 0) return 1.0 - NormalCdf(-x);
+
+            // Coefficients (A&S 26.2.17–style)
+            double p = 0.2316419;
+            double b1 = 0.319381530;
+            double b2 = -0.356563782;
+            double b3 = 1.781477937;
+            double b4 = -1.821255978;
+            double b5 = 1.330274429;
+
+            double t = 1.0 / (1.0 + p * x);
+            double pdf = Math.Exp(-0.5 * x * x) / Math.Sqrt(2.0 * Math.PI);
+            double poly = (((((b5 * t + b4) * t) + b3) * t + b2) * t + b1) * t;
+
+            return 1.0 - pdf * poly;
+        }
+
+
+        /// <summary>
+        /// Use D1 to grab option delta
+        /// <summary>
         private static double BlackScholesDelta(double S, double t, PricingParameters parameters)
         {
-            double T = parameters.TimeToExpiry;
+            double T = parameters.TimeToExpiry;   // years
             double K = parameters.Strike;
             double r = parameters.RiskFreeRate;
             double sigma = parameters.Volatility;
             bool isCall = parameters.isCall;
 
-            double tau = T - t;
-            if (tau <= 0) return isCall ? (S > K ? 1.0 : 0.0) : (S < K ? -1.0 : 0.0);
+            double tau = T - t;                       // time remaining
+            if (tau <= 1e-12)
+                return isCall ? (S > K ? 1.0 : 0.0)
+                              : (S < K ? -1.0 : 0.0);
 
-            double d1 = (Math.Log(S / K) + (r + 0.5 * sigma * sigma) * tau) / (sigma * Math.Sqrt(tau));
+            double denom = sigma * Math.Sqrt(tau);
+            if (denom <= 0)
+                return isCall ? (S >= K ? 1.0 : 0.0)
+                              : (S <= K ? -1.0 : 0.0);
+
+            double d1 = (Math.Log(S / K) + (r + 0.5 * sigma * sigma) * tau) / denom;
+
+            // Call: Φ(d1); Put: Φ(d1) − 1
             return isCall ? NormalCdf(d1) : NormalCdf(d1) - 1.0;
-        }
-
-
-        // Standard normal CDF (can use an approximation)
-        private static double NormalCdf(double x)
-        {
-            return 0.5 * (1.0 + Erf(x / Math.Sqrt(2.0)));
-        }
-
-
-        private static double Erf(double x)
-        {
-            // Abramowitz and Stegun formula 7.1.26
-            double sign = Math.Sign(x);
-            x = Math.Abs(x);
-
-            double a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
-            double a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-
-            double t = 1.0 / (1.0 + p * x);
-            double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
-
-            return sign * y;
         }
 
 
