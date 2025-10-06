@@ -25,7 +25,8 @@ namespace MonteCarloOptionPricer.Models
         public bool isCall { get; set; }
         public int TimeSteps { get; set; }
         public int NumberOfPaths { get; set; }
-        public SimulationMode SimMode    { get; set; } = SimulationMode.Plain;
+        public bool UseMultithreading { get; set; } = false; // Default to false
+        public SimulationMode SimMode { get; set; } = SimulationMode.Plain;
         
         // Parameters for Van der Corput (only used if SimMode == VanDerCorput)
         public int VdCBase1      { get; set; } = 2;

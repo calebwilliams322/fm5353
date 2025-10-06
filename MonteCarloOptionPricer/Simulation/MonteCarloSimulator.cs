@@ -47,36 +47,102 @@ namespace MonteCarloOptionPricer.Simulation
         // Simulate final prices using only Box Muller methods ('Plain' method)
         // Utilizes both numbers in the tuple returned by NextTwoStandardNormals
 
-        private static List<double> SimulatePlainPrices(PricingParameters parameters)
+        private static List<double> SimulatePlainPrices(PricingParameters p)
         {
-            var terminals = new List<double>(parameters.NumberOfPaths);
-            double dt = parameters.TimeToExpiry / parameters.TimeSteps;
+            int nPaths = p.NumberOfPaths;
+            int nSteps = p.TimeSteps;
+            double dt = p.TimeToExpiry / nSteps;
 
-            for (int path = 0; path < parameters.NumberOfPaths; path++)
+            //  Pre-generate all random numbers in a single thread
+            //    This guarantees thread safety and reproducibility.
+            double[,] normals = new double[nPaths, nSteps];
+            for (int i = 0; i < nPaths; i++)
             {
-                double s = parameters.InitialPrice;
-                int step = 0;
-                while (step < parameters.TimeSteps)
+                for (int j = 0; j < nSteps; j++)
                 {
-                    var (z1, z2) = RandomNumberGenerator.NextTwoStandardNormals();
-
-                    // Use z1 for this step
-                    s *= Math.Exp((parameters.RiskFreeRate - 0.5 * parameters.Volatility * parameters.Volatility) * dt
-                              + parameters.Volatility * Math.Sqrt(dt) * z1);
-                    step++;
-
-                    // If another step remains, use z2
-                    if (step < parameters.TimeSteps)
-                    {
-                        s *= Math.Exp((parameters.RiskFreeRate - 0.5 * parameters.Volatility * parameters.Volatility) * dt
-                                      + parameters.Volatility * Math.Sqrt(dt) * z2);
-                        step++;
-                    }
+                    normals[i, j] = RandomNumberGenerator.NextStandardNormal();
                 }
-                terminals.Add(s);
             }
-            return terminals;
+
+            // Prepare storage for terminal prices
+            var terminals = new double[nPaths];
+
+            if (p.UseMultithreading)
+            {
+                Console.WriteLine(" ");
+                Console.WriteLine($"[INFO] Running multithreaded simulation on {Environment.ProcessorCount} cores...");
+
+                // --- Multithreaded execution ---
+                int numThreads = Math.Max(1, Math.Min(Environment.ProcessorCount, nPaths));
+                int baseCount = nPaths / numThreads;
+                int remainder = nPaths % numThreads;
+
+                var tasks = new List<Task>(numThreads);
+                int offset = 0;
+
+                for (int t = 0; t < numThreads; t++)
+                {
+                    int count = baseCount + (t < remainder ? 1 : 0);
+                    int start = offset;
+                    int end = start + count;
+                    offset = end;
+
+                    // each thread uses its own slice of [start, end)
+                    tasks.Add(Task.Run(() =>
+                    {
+                        for (int path = start; path < end; path++)
+                        {
+                            double s = p.InitialPrice;
+
+                            for (int step = 0; step < nSteps; step++)
+                            {
+                                double z = normals[path, step];
+                                s *= Math.Exp(
+                                    (p.RiskFreeRate - 0.5 * p.Volatility * p.Volatility) * dt
+                                    + p.Volatility * Math.Sqrt(dt) * z
+                                );
+                            }
+
+                            terminals[path] = s;
+                        }
+                    }));
+                }
+                Task.WaitAll(tasks.ToArray());
+
+            }
+            else
+            {
+                // --- Single-threaded execution ---
+                for (int path = 0; path < nPaths; path++)
+                {
+                    double s = p.InitialPrice;
+                    int step = 0;
+
+                    while (step < nSteps)
+                    {
+                        var (z1, z2) = RandomNumberGenerator.NextTwoStandardNormals();
+
+                        s *= Math.Exp((p.RiskFreeRate - 0.5 * p.Volatility * p.Volatility) * dt
+                                      + p.Volatility * Math.Sqrt(dt) * z1);
+                        step++;
+
+                        if (step < nSteps)
+                        {
+                            s *= Math.Exp((p.RiskFreeRate - 0.5 * p.Volatility * p.Volatility) * dt
+                                          + p.Volatility * Math.Sqrt(dt) * z2);
+                            step++;
+                        }
+                    }
+
+                    terminals[path] = s;
+                }
+            }
+
+            // Convert to List<double> once at the end
+            return new List<double>(terminals);
         }
+
+
 
 
 
@@ -86,43 +152,100 @@ namespace MonteCarloOptionPricer.Simulation
         /// Returns raw terminal prices (both halves) in sequence; collapsing is handled outside.
         /// </summary>
 
-        private static List<double> SimulateAntitheticPrices(PricingParameters parameters)
+        private static List<double> SimulateAntitheticPrices(PricingParameters p)
         {
-            int totalPaths = parameters.NumberOfPaths;
-            var terminals = new List<double>(totalPaths);
-            double dt = parameters.TimeToExpiry / parameters.TimeSteps;
+            int nPaths = p.NumberOfPaths;     // base paths (each yields s⁺ and s⁻)
+            int nSteps = p.TimeSteps;
+            double dt = p.TimeToExpiry / nSteps;
+            double drift = (p.RiskFreeRate - 0.5 * p.Volatility * p.Volatility) * dt;
 
-            for (int i = 0; i < totalPaths; i++)
+            // Pre-generate all random numbers in a single thread
+            // Each path × step will have one z; we’ll also use -z for the antithetic path
+            double[,] normals = new double[nPaths, nSteps];
+            for (int i = 0; i < nPaths; i++)
             {
-                double sPlus = parameters.InitialPrice;
-                double sMinus = parameters.InitialPrice;
-
-                int step = 0;
-                while (step < parameters.TimeSteps)
+                for (int j = 0; j < nSteps; j++)
                 {
-                    var (z1, z2) = RandomNumberGenerator.NextTwoStandardNormals();
-                    double drift = (parameters.RiskFreeRate - 0.5 * parameters.Volatility * parameters.Volatility) * dt;
-
-                    // Use z1 for this step
-                    double diffusion1 = parameters.Volatility * Math.Sqrt(dt) * z1;
-                    sPlus *= Math.Exp(drift + diffusion1);
-                    sMinus *= Math.Exp(drift - diffusion1);
-                    step++;
-
-                    // If another step remains, use z2
-                    if (step < parameters.TimeSteps)
-                    {
-                        double diffusion2 = parameters.Volatility * Math.Sqrt(dt) * z2;
-                        sPlus *= Math.Exp(drift + diffusion2);
-                        sMinus *= Math.Exp(drift - diffusion2);
-                        step++;
-                    }
+                    normals[i, j] = RandomNumberGenerator.NextStandardNormal();
                 }
-                terminals.Add(sPlus);
-                terminals.Add(sMinus);
             }
-            return terminals;
+
+            // Prepare storage for both terminal prices (s⁺ and s⁻ per path)
+            var terminals = new double[2 * nPaths];
+
+            if (p.UseMultithreading)
+            {
+                Console.WriteLine(" ");
+                Console.WriteLine($"[INFO] Running multithreaded antithetic simulation on {Environment.ProcessorCount} cores...");
+
+                int numThreads = Math.Max(1, Math.Min(Environment.ProcessorCount, nPaths));
+                int baseCount = nPaths / numThreads;
+                int remainder = nPaths % numThreads;
+
+                var tasks = new List<Task>(numThreads);
+                int offset = 0;
+
+                for (int t = 0; t < numThreads; t++)
+                {
+                    int count = baseCount + (t < remainder ? 1 : 0);
+                    int start = offset;
+                    int end = start + count;
+                    offset = end;
+
+                    tasks.Add(Task.Run(() =>
+                    {
+                        for (int path = start; path < end; path++)
+                        {
+                            double sPlus = p.InitialPrice;
+                            double sMinus = p.InitialPrice;
+
+                            for (int step = 0; step < nSteps; step++)
+                            {
+                                double z = normals[path, step];
+                                double diffusion = p.Volatility * Math.Sqrt(dt) * z;
+
+                                // z → affects sPlus; -z → affects sMinus
+                                sPlus *= Math.Exp(drift + diffusion);
+                                sMinus *= Math.Exp(drift - diffusion);
+                            }
+
+                            // Thread-safe slice writes
+                            terminals[2 * path] = sPlus;
+                            terminals[2 * path + 1] = sMinus;
+                        }
+                    }));
+                }
+
+                Task.WaitAll(tasks.ToArray());
+            }
+            else
+            {
+                Console.WriteLine("[INFO] Running single-threaded antithetic simulation...");
+
+                // --- Single-threaded execution ---
+                for (int i = 0; i < nPaths; i++)
+                {
+                    double sPlus = p.InitialPrice;
+                    double sMinus = p.InitialPrice;
+
+                    for (int step = 0; step < nSteps; step++)
+                    {
+                        double z = RandomNumberGenerator.NextStandardNormal();
+                        double diffusion = p.Volatility * Math.Sqrt(dt) * z;
+
+                        sPlus *= Math.Exp(drift + diffusion);
+                        sMinus *= Math.Exp(drift - diffusion);
+                    }
+
+                    terminals[2 * i] = sPlus;
+                    terminals[2 * i + 1] = sMinus;
+                }
+            }
+
+            // Convert to List<double> once at the end
+            return new List<double>(terminals);
         }
+
 
 
 
@@ -168,119 +291,270 @@ namespace MonteCarloOptionPricer.Simulation
 
 
 
-        public static (List<double> terminalPrices, List<double> pnlHedges) SimulateControlVariateTerminals(PricingParameters parameters)
+        public static (List<double> terminalPrices, List<double> pnlHedges) SimulateControlVariateTerminals(PricingParameters p)
         {
-            var terminalPrices = new List<double>(parameters.NumberOfPaths);
-            var pnlHedges = new List<double>(parameters.NumberOfPaths);
-            double dt = parameters.TimeToExpiry / parameters.TimeSteps;
-            double discount = Math.Exp(-parameters.RiskFreeRate * parameters.TimeToExpiry);
+            int nPaths = p.NumberOfPaths;
+            int nSteps = p.TimeSteps;
+            double dt = p.TimeToExpiry / nSteps;
+            double drift = (p.RiskFreeRate - 0.5 * p.Volatility * p.Volatility) * dt;
+            double volSqrtDt = p.Volatility * Math.Sqrt(dt);
+            double discount = Math.Exp(-p.RiskFreeRate * p.TimeToExpiry);
 
-            for (int path = 0; path < parameters.NumberOfPaths; path++)
+            // 1) Pre-generate all random numbers in a single thread (thread-safe, reproducible)
+            double[,] normals = new double[nPaths, nSteps];
+            for (int i = 0; i < nPaths; i++)
+                for (int j = 0; j < nSteps; j++)
+                    normals[i, j] = RandomNumberGenerator.NextStandardNormal();
+
+            // 2) Pre-allocate result arrays (filled in-place by slices)
+            var terminalArr = new double[nPaths];
+            var pnlHedgeArr = new double[nPaths];
+
+            if (p.UseMultithreading)
             {
-                double s = parameters.InitialPrice;
-                double pnl;
-                double cash;
-                double t = 0.0;
-                double deltaPrev = BlackScholesDelta(s, t, parameters);
+                Console.WriteLine();
+                Console.WriteLine($"[INFO] Running multithreaded control-variate simulation on {Environment.ProcessorCount} cores...");
 
-                // Initial hedge: short delta shares, invest proceeds at risk-free rate
-                cash = -deltaPrev * s;
+                int threads = Math.Max(1, Math.Min(Environment.ProcessorCount, nPaths));
+                int baseCount = nPaths / threads;
+                int remainder = nPaths % threads;
 
-                for (int step = 1; step <= parameters.TimeSteps; step++)
+                var tasks = new List<Task>(threads);
+                int offset = 0;
+
+                for (int t = 0; t < threads; t++)
                 {
-                    var z = RandomNumberGenerator.NextStandardNormal();
-                    s *= Math.Exp((parameters.RiskFreeRate - 0.5 * parameters.Volatility * parameters.Volatility) * dt
-                                  + parameters.Volatility * Math.Sqrt(dt) * z);
+                    int count = baseCount + (t < remainder ? 1 : 0);
+                    int start = offset;
+                    int end = start + count;
+                    offset = end;
 
-                    t = step * dt;
-                    double delta = BlackScholesDelta(s, t, parameters);
+                    tasks.Add(Task.Run(() =>
+                    {
+                        for (int path = start; path < end; path++)
+                        {
+                            double s = p.InitialPrice;
+                            double tCur = 0.0;
 
+                            // Hedge init
+                            double deltaPrev = BlackScholesDelta(s, tCur, p);
+                            double cash = -deltaPrev * s;   // short delta shares; proceeds held as "cash"
+                                                            // (keeping your original convention — no accrual here)
+                                                            // Walk forward
+                            for (int step = 0; step < nSteps; step++)
+                            {
+                                double z = normals[path, step];
+                                s *= Math.Exp(drift + volSqrtDt * z);
 
-                    // Rebalance hedge: buy/sell shares, adjust cash
-                    double dDelta = delta - deltaPrev;
-                    cash -= dDelta * s;
+                                tCur = (step + 1) * dt;
+                                double delta = BlackScholesDelta(s, tCur, p);
 
-                    deltaPrev = delta;
+                                // Rebalance hedge (self-financing: adjust cash by trade)
+                                double dDelta = delta - deltaPrev;
+                                cash -= dDelta * s;
+
+                                deltaPrev = delta;
+                            }
+
+                            // Unwind hedge at expiry
+                            cash += deltaPrev * s;
+
+                            terminalArr[path] = s;
+                            pnlHedgeArr[path] = discount * cash; // keep your "discount at end" convention
+                        }
+                    }));
                 }
 
-                // At expiry: unwind hedge
-                cash += deltaPrev * s; // Close hedge
-                pnl = cash; // This is the PnL of the hedged portfolio (option payoff to be added outside)
-                terminalPrices.Add(s);
-                pnlHedges.Add(discount * pnl);
+                Task.WaitAll(tasks.ToArray());
             }
-  
-            return (terminalPrices, pnlHedges);
+            else
+            {
+                Console.WriteLine("[INFO] Running single-threaded control-variate simulation...");
+
+                for (int path = 0; path < nPaths; path++)
+                {
+                    double s = p.InitialPrice;
+                    double tCur = 0.0;
+
+                    double deltaPrev = BlackScholesDelta(s, tCur, p);
+                    double cash = -deltaPrev * s;
+
+                    for (int step = 0; step < nSteps; step++)
+                    {
+                        double z = normals[path, step];
+                        s *= Math.Exp(drift + volSqrtDt * z);
+
+                        tCur = (step + 1) * dt;
+                        double delta = BlackScholesDelta(s, tCur, p);
+
+                        double dDelta = delta - deltaPrev;
+                        cash -= dDelta * s;
+
+                        deltaPrev = delta;
+                    }
+
+                    cash += deltaPrev * s;
+
+                    terminalArr[path] = s;
+                    pnlHedgeArr[path] = discount * cash;
+                }
+            }
+
+            // 3) Convert once at the end
+            return (new List<double>(terminalArr), new List<double>(pnlHedgeArr));
         }
-
-
 
 
         /// <summary>
         /// Utilizes antithetic sampling and control variate techniques to minimize variance
         /// <sumary>
-        public static (List<double> terminalPrices, List<double> pnlHedges) SimulateAntitheticControlVariateTerminals(PricingParameters parameters)
-         {
-            var terminalPrices = new List<double>(parameters.NumberOfPaths);
-            var pnlHedges = new List<double>(parameters.NumberOfPaths);
+        public static (List<double> terminalPrices, List<double> pnlHedges) SimulateAntitheticControlVariateTerminals(PricingParameters p)
+        {
+            int nPaths = p.NumberOfPaths;          // base paths; we’ll produce 2 results per base path
+            int nSteps = p.TimeSteps;
+            double dt = p.TimeToExpiry / nSteps;
+            double driftStep = (p.RiskFreeRate - 0.5 * p.Volatility * p.Volatility) * dt;
+            double volSqrtDt = p.Volatility * Math.Sqrt(dt);
+            double discount = Math.Exp(-p.RiskFreeRate * p.TimeToExpiry);
 
-            int steps = parameters.TimeSteps;
-            double dt = parameters.TimeToExpiry / steps;
-            double driftStep = (parameters.RiskFreeRate - 0.5 * parameters.Volatility * parameters.Volatility) * dt;
-            double volSqrtDt = parameters.Volatility * Math.Sqrt(dt);
-            double discount = Math.Exp(-parameters.RiskFreeRate * parameters.TimeToExpiry);
+            // 1) Pre-generate all required standard normals (thread-safe & reproducible)
+            double[,] normals = new double[nPaths, nSteps];
+            for (int i = 0; i < nPaths; i++)
+                for (int j = 0; j < nSteps; j++)
+                    normals[i, j] = RandomNumberGenerator.NextStandardNormal();
 
-            for (int path = 0; path < parameters.NumberOfPaths; path++)
+            // 2) Pre-allocate outputs (2 per base path: plus and minus)
+            var terminalArr = new double[2 * nPaths];
+            var pnlHedgeArr = new double[2 * nPaths];
+
+            if (p.UseMultithreading)
             {
-                double s = parameters.InitialPrice;
-                double t = 0.0;
-                double deltaPrev = BlackScholesDelta(s, t, parameters);
+                Console.WriteLine();
+                Console.WriteLine($"[INFO] Running multithreaded antithetic CV simulation on {Environment.ProcessorCount} cores...");
 
-                // Initial hedge: short delta shares, invest proceeds at risk-free rate
-                double cash = -deltaPrev * s;
+                int threads = Math.Max(1, Math.Min(Environment.ProcessorCount, nPaths));
+                int baseCount = nPaths / threads;
+                int remainder = nPaths % threads;
 
-                int step = 1;
-                while (step <= steps)
+                var tasks = new List<Task>(threads);
+                int offset = 0;
+
+                for (int t = 0; t < threads; t++)
                 {
-                    // Get an antithetic pair
-                    var (z1, z2) = RandomNumberGenerator.NextTwoStandardNormals();
+                    int count = baseCount + (t < remainder ? 1 : 0);
+                    int start = offset;
+                    int end = start + count;
+                    offset = end;
 
-                    // ---- Step using z1 ----
-                    s *= Math.Exp(driftStep + volSqrtDt * z1);
-                    t = step * dt;
-
-                    double delta = BlackScholesDelta(s, t, parameters);
-                    double dDelta = delta - deltaPrev;
-                    cash -= dDelta * s;
-                    deltaPrev = delta;
-
-                    step++;
-
-                    // ---- If another step remains, use z2 immediately ----
-                    if (step <= steps)
+                    tasks.Add(Task.Run(() =>
                     {
-                        s *= Math.Exp(driftStep + volSqrtDt * z2);
-                        t = step * dt;
+                        for (int path = start; path < end; path++)
+                        {
+                            // Two coupled (antithetic) paths
+                            double sPlus = p.InitialPrice;
+                            double sMinus = p.InitialPrice;
 
-                        delta = BlackScholesDelta(s, t, parameters);
-                        dDelta = delta - deltaPrev;
-                        cash -= dDelta * s;
-                        deltaPrev = delta;
+                            // Hedge states for each path
+                            double tCur = 0.0;
+                            double deltaPrevPlus = BlackScholesDelta(sPlus, tCur, p);
+                            double deltaPrevMinus = BlackScholesDelta(sMinus, tCur, p);
 
-                        step++;
-                    }
+                            double cashPlus = -deltaPrevPlus * sPlus;
+                            double cashMinus = -deltaPrevMinus * sMinus;
+
+                            for (int step = 0; step < nSteps; step++)
+                            {
+                                double z = normals[path, step];
+                                double diff = volSqrtDt * z;
+
+                                // Antithetic shocks: +z for sPlus, -z for sMinus
+                                sPlus *= Math.Exp(driftStep + diff);
+                                sMinus *= Math.Exp(driftStep - diff);
+
+                                tCur = (step + 1) * dt;
+
+                                double deltaPlus = BlackScholesDelta(sPlus, tCur, p);
+                                double deltaMinus = BlackScholesDelta(sMinus, tCur, p);
+
+                                // Rebalance self-financing hedge for each path
+                                double dDeltaPlus = deltaPlus - deltaPrevPlus;
+                                double dDeltaMinus = deltaMinus - deltaPrevMinus;
+
+                                cashPlus -= dDeltaPlus * sPlus;
+                                cashMinus -= dDeltaMinus * sMinus;
+
+                                deltaPrevPlus = deltaPlus;
+                                deltaPrevMinus = deltaMinus;
+                            }
+
+                            // Unwind the hedge at expiry for each path
+                            cashPlus += deltaPrevPlus * sPlus;
+                            cashMinus += deltaPrevMinus * sMinus;
+
+                            terminalArr[2 * path] = sPlus;
+                            terminalArr[2 * path + 1] = sMinus;
+
+                            pnlHedgeArr[2 * path] = discount * cashPlus;
+                            pnlHedgeArr[2 * path + 1] = discount * cashMinus;
+                        }
+                    }));
                 }
 
-                // Unwind hedge at expiry
-                cash += deltaPrev * s;     // close hedge
-                double pnl = cash;         // hedged-portfolio PnL (option payoff added outside if desired)
+                Task.WaitAll(tasks.ToArray());
+            }
+            else
+            {
+                Console.WriteLine("[INFO] Running single-threaded antithetic CV simulation...");
 
-                terminalPrices.Add(s);
-                pnlHedges.Add(discount * pnl);
+                for (int path = 0; path < nPaths; path++)
+                {
+                    double sPlus = p.InitialPrice;
+                    double sMinus = p.InitialPrice;
+
+                    double tCur = 0.0;
+                    double deltaPrevPlus = BlackScholesDelta(sPlus, tCur, p);
+                    double deltaPrevMinus = BlackScholesDelta(sMinus, tCur, p);
+
+                    double cashPlus = -deltaPrevPlus * sPlus;
+                    double cashMinus = -deltaPrevMinus * sMinus;
+
+                    for (int step = 0; step < nSteps; step++)
+                    {
+                        double z = RandomNumberGenerator.NextStandardNormal();
+                        double diff = volSqrtDt * z;
+
+                        sPlus *= Math.Exp(driftStep + diff);
+                        sMinus *= Math.Exp(driftStep - diff);
+
+                        tCur = (step + 1) * dt;
+
+                        double deltaPlus = BlackScholesDelta(sPlus, tCur, p);
+                        double deltaMinus = BlackScholesDelta(sMinus, tCur, p);
+
+                        double dDeltaPlus = deltaPlus - deltaPrevPlus;
+                        double dDeltaMinus = deltaMinus - deltaPrevMinus;
+
+                        cashPlus -= dDeltaPlus * sPlus;
+                        cashMinus -= dDeltaMinus * sMinus;
+
+                        deltaPrevPlus = deltaPlus;
+                        deltaPrevMinus = deltaMinus;
+                    }
+
+                    cashPlus += deltaPrevPlus * sPlus;
+                    cashMinus += deltaPrevMinus * sMinus;
+
+                    terminalArr[2 * path] = sPlus;
+                    terminalArr[2 * path + 1] = sMinus;
+
+                    pnlHedgeArr[2 * path] = discount * cashPlus;
+                    pnlHedgeArr[2 * path + 1] = discount * cashMinus;
+                }
             }
 
-            return (terminalPrices, pnlHedges);
+            return (new List<double>(terminalArr), new List<double>(pnlHedgeArr));
         }
+
 
         
 

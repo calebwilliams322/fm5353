@@ -63,6 +63,8 @@ namespace MonteCarloOptionPricer
                         
                 }
             
+            bool useMultithreading = ReadBool("Would you like to enable multithreading? (Y/N): ", false);
+            
             int vdcBase1   = 2;
             int vdcBase2 = 5;
             int vdcPoints = 1024;
@@ -86,6 +88,7 @@ namespace MonteCarloOptionPricer
                 riskFreeRate,
                 timeSteps,
                 numberOfPaths,
+                useMultithreading,
                 calculateGreeks,
                 simMode,
                 vdcBase1,
