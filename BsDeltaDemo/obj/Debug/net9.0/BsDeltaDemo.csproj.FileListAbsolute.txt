@@ -1,0 +1,15 @@
+/Users/calebwilliams/fm5353/BsDeltaDemo/bin/Debug/net9.0/BsDeltaDemo
+/Users/calebwilliams/fm5353/BsDeltaDemo/bin/Debug/net9.0/BsDeltaDemo.deps.json
+/Users/calebwilliams/fm5353/BsDeltaDemo/bin/Debug/net9.0/BsDeltaDemo.runtimeconfig.json
+/Users/calebwilliams/fm5353/BsDeltaDemo/bin/Debug/net9.0/BsDeltaDemo.dll
+/Users/calebwilliams/fm5353/BsDeltaDemo/bin/Debug/net9.0/BsDeltaDemo.pdb
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.GeneratedMSBuildEditorConfig.editorconfig
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.AssemblyInfoInputs.cache
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.AssemblyInfo.cs
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.csproj.CoreCompileInputs.cache
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.sourcelink.json
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.dll
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/refint/BsDeltaDemo.dll
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.pdb
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/BsDeltaDemo.genruntimeconfig.cache
+/Users/calebwilliams/fm5353/BsDeltaDemo/obj/Debug/net9.0/ref/BsDeltaDemo.dll
