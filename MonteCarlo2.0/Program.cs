@@ -1,5 +1,6 @@
 ﻿using System;
 using MonteCarloOptionPricer.Models;
+using MonteCarloOptionPricer.OptionModels;
 using MonteCarloOptionPricer.Simulation;
 
 namespace MonteCarloOptionPricer
@@ -8,85 +9,150 @@ namespace MonteCarloOptionPricer
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("=== Monte Carlo Simulator Smoke Test ===\n");
+            Console.WriteLine("\n==============================================");
+            Console.WriteLine("  Monte Carlo Option Pricer — Interactive Mode");
+            Console.WriteLine("==============================================");
+            Console.WriteLine("This program prices different option types using Monte Carlo simulation.\n");
+            Console.WriteLine("You'll be prompted to enter key parameters:");
+            Console.WriteLine("  • Underlying price, strike, volatility, risk-free rate, maturity");
+            Console.WriteLine("  • Option type (European, Asian, Digital, Barrier, Lookback, Range)");
+            Console.WriteLine("  • Simulation type (Plain, Antithetic, Control Variate, etc.)");
+            Console.WriteLine("  • Whether to compute Greeks and use multithreading");
+            Console.WriteLine("\nPress Enter to accept defaults at any prompt.\n");
 
-            // --- Define shared parameters ---
-            var simParams = new SimulationParameters
+            // === Core Inputs ===
+            double S0 = ReadDouble("Enter initial underlying price (S0):", 100.0);
+            double K = ReadDouble("Enter strike/reference price (K):", 100.0);
+            double sigma = ReadDouble("Enter volatility (e.g. 0.2 for 20%):", 0.2);
+            double r = ReadDouble("Enter risk-free rate (e.g. 0.05 for 5%):", 0.05);
+            double T = ReadDouble("Enter time to expiry in years:", 1.0);
+            bool isCall = ReadBool("Is this a Call option? (Y/N):", true);
+            bool calcGreeks = ReadBool("Calculate Greeks? (Y/N):", true);
+            bool useThreads = ReadBool("Enable multithreading? (Y/N):", true);
+
+            // === Simulation setup ===
+            int steps = ReadInt("Enter number of time steps per path:", 252);
+            int paths = ReadInt("Enter number of simulated paths:", 10000);
+            int simChoice = ReadInt("Choose simulation mode:\n  1=Plain\n  2=Antithetic\n  3=ControlVariate\n[default=1]:", 1);
+
+            SimulationMode simMode = simChoice switch
             {
-                InitialPrice = 100.0,
-                Volatility = 0.2,
-                RiskFreeRate = 0.05,
-                TimeToExpiry = 1.0,
-                TimeSteps = 252,
-                NumberOfPaths = 10000,
-                SimMode = SimulationMode.Plain,
-                UseMultithreading = false,
-                ReferenceStrike = 100.0
+                2 => SimulationMode.Antithetic,
+                3 => SimulationMode.ControlVariate,
+                _ => SimulationMode.Plain
             };
 
-            // --- Plain GBM Test ---
-            simParams.SimMode = SimulationMode.Plain;
-            var plain = MonteCarloSimulator.Simulate(simParams);
-            PrintSummary("Plain", plain);
+            // === Option type selection ===
+            Console.WriteLine("\nSelect option type:");
+            Console.WriteLine("  1 = European");
+            Console.WriteLine("  2 = Asian");
+            Console.WriteLine("  3 = Digital");
+            Console.WriteLine("  4 = Barrier");
+            Console.WriteLine("  5 = Lookback");
+            Console.WriteLine("  6 = Range");
+            int optChoice = ReadInt("Enter your choice [default=1]:", 1);
 
-            // --- Antithetic Test ---
-            simParams.SimMode = SimulationMode.Antithetic;
-            var anti = MonteCarloSimulator.Simulate(simParams);
-            PrintSummary("Antithetic", anti);
+            DateTime expiry = DateTime.Today.AddYears((int)Math.Ceiling(T));
 
-            // --- Van der Corput Test ---
-            simParams.SimMode = SimulationMode.VanDerCorput;
-            var vdc = MonteCarloSimulator.Simulate(simParams);
-            PrintSummary("Van der Corput", vdc);
-
-            // --- Control Variate Test ---
-            simParams.SimMode = SimulationMode.ControlVariate;
-            var cv = MonteCarloSimulator.Simulate(simParams);
-            PrintSummary("Control Variate", cv, includeHedge: true);
-
-            // --- Antithetic + CV Test ---
-            simParams.SimMode = SimulationMode.AntitheticAndControlVariate;
-            var cvAnti = MonteCarloSimulator.Simulate(simParams);
-            PrintSummary("Antithetic + Control Variate", cvAnti, includeHedge: true);
-
-            Console.WriteLine("\n=== Tests Complete ===");
-        }
-
-        // --- Helper printer ---
-        static void PrintSummary(string label, MonteCarloSimulator.SimulationOutput output, bool includeHedge = false)
-        {
-            var mean = Mean(output.Terminals);
-            var std = Std(output.Terminals, mean);
-            Console.WriteLine($"[{label}]");
-            Console.WriteLine($"Paths: {output.Terminals.Count}");
-            Console.WriteLine($"Mean terminal: {mean:F4}, StdDev: {std:F4}");
-
-            if (includeHedge && output.HedgePnL != null)
+            // === Construct chosen option ===
+            IOption selectedOption = optChoice switch
             {
-                var meanPnL = Mean(output.HedgePnL);
-                var stdPnL = Std(output.HedgePnL, meanPnL);
-                Console.WriteLine($"Mean hedge PnL: {meanPnL:F4}, StdDev: {stdPnL:F4}");
+                2 => new AsianOption(S0, K, expiry, isCall, AveragingType.Arithmetic),
+                3 => new DigitalOption(S0, K, expiry, isCall, true, 1.0),
+                4 => new BarrierOption(S0, K, expiry, isCall, BarrierType.KnockOut, BarrierDirection.Up, 110.0),
+                5 => new LookbackOption(S0, K, expiry, isCall, LookbackType.Max),
+                6 => new RangeOption(S0, K, expiry),
+                _ => new EuropeanOption(S0, K, expiry, isCall),
+            };
+
+            // === Simulation Execution ===
+            Console.WriteLine($"\nRunning {simMode} Monte Carlo simulation for {selectedOption.GetType().Name}...");
+            var result = selectedOption.GetPrice(
+                volatility: sigma,
+                riskFreeRate: r,
+                timeSteps: steps,
+                numberOfPaths: paths,
+                calculateGreeks: calcGreeks,
+                useMultithreading: useThreads,
+                simMode: simMode
+            );
+
+            // === Display Results ===
+            Console.WriteLine($"\n=== {selectedOption.GetType().Name} Results ===");
+            PrintResult(result);
+
+            // === Bonus Comparison Across All Option Types ===
+            Console.WriteLine("\n=== Comparative Simulation Across All Option Types ===");
+            Console.WriteLine("This uses the same shared parameters to conceptually compare pricing levels.\n");
+
+            IOption[] allOptions = new IOption[]
+            {
+                new EuropeanOption(S0, K, expiry, isCall),
+                new AsianOption(S0, K, expiry, isCall, AveragingType.Arithmetic),
+                new DigitalOption(S0, K, expiry, isCall, true, 1.0),
+                new BarrierOption(S0, K, expiry, isCall, BarrierType.KnockOut, BarrierDirection.Up, 110.0),
+                new LookbackOption(S0, K, expiry, isCall, LookbackType.Max),
+                new RangeOption(S0, K, expiry)
+            };
+
+            foreach (var opt in allOptions)
+            {
+                var res = opt.GetPrice(sigma, r, steps, paths, false, useThreads, simMode);
+                Console.WriteLine($"{opt.GetType().Name,-20}  →  Price: {res.Price,10:F4}");
             }
 
-            Console.WriteLine();
+            Console.WriteLine("\nSimulation complete!");
+            Console.WriteLine("Observe how exotic features (path-dependence, barriers, averaging) affect value.");
+            Console.WriteLine("Higher path sensitivity → generally higher vega and slower convergence.\n");
         }
 
-        static double Mean(IReadOnlyList<double> x)
+        // === Helper Methods ===
+
+        static double ReadDouble(string prompt, double defaultValue)
         {
-            double sum = 0;
-            foreach (var xi in x) sum += xi;
-            return sum / x.Count;
+            Console.WriteLine(prompt);
+            string? input = Console.ReadLine();
+            if (double.TryParse(input, out double val)) return val;
+            Console.WriteLine($"Defaulting to {defaultValue}.\n");
+            return defaultValue;
         }
 
-        static double Std(IReadOnlyList<double> x, double mean)
+        static int ReadInt(string prompt, int defaultValue)
         {
-            double sum = 0;
-            foreach (var xi in x)
+            Console.WriteLine(prompt);
+            string? input = Console.ReadLine();
+            if (int.TryParse(input, out int val)) return val;
+            Console.WriteLine($"Defaulting to {defaultValue}.\n");
+            return defaultValue;
+        }
+
+        static bool ReadBool(string prompt, bool defaultValue)
+        {
+            Console.WriteLine(prompt);
+            string? input = Console.ReadLine()?.Trim().ToUpper();
+            if (string.IsNullOrWhiteSpace(input))
             {
-                var diff = xi - mean;
-                sum += diff * diff;
+                Console.WriteLine($"Defaulting to {(defaultValue ? "Yes" : "No")}.\n");
+                return defaultValue;
             }
-            return Math.Sqrt(sum / (x.Count - 1));
+            return input switch
+            {
+                "Y" or "YES" => true,
+                "N" or "NO" => false,
+                _ => defaultValue
+            };
+        }
+
+        static void PrintResult(PricingResult res)
+        {
+            Console.WriteLine($"  Price          : {res.Price,10:F4}");
+            if (res.StandardError.HasValue)
+                Console.WriteLine($"  Std. Error     : {res.StandardError.Value,10:F4}");
+            Console.WriteLine($"  Δ Delta        : {res.Delta,10:F4}");
+            Console.WriteLine($"  Γ Gamma        : {res.Gamma,10:F4}");
+            Console.WriteLine($"  ν Vega         : {res.Vega,10:F4}");
+            Console.WriteLine($"  θ Theta        : {res.Theta,10:F4}");
+            Console.WriteLine($"  ρ Rho          : {res.Rho,10:F4}");
         }
     }
 }
