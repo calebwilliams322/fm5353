@@ -1,0 +1,6 @@
+@MonteCarloAPI_HostAddress = http://localhost:5262
+
+GET {{MonteCarloAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

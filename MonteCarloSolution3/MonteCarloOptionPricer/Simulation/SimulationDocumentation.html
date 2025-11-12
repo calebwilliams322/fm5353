@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulation Directory — MonteCarlo Option Pricer</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      color: #222;
+      line-height: 1.6;
+      margin: 2rem auto;
+      max-width: 1000px;
+    }
+    h1, h2, h3 {
+      color: #003366;
+    }
+    h4 {
+      color: #004c99;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th {
+      background-color: #f0f4fa;
+    }
+    code {
+      background-color: #f6f8fa;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 0.95em;
+    }
+    pre {
+      background-color: #f9f9f9;
+      border-left: 4px solid #004c99;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .divider {
+      border-top: 2px solid #eee;
+      margin: 2rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>⚙️ Simulation Directory — MonteCarlo Option Pricer</h1>
+
+  <p>
+    The <strong>Simulation</strong> directory defines the computational engine of the Monte Carlo Option Pricer.
+    It provides the stochastic modeling and path-generation infrastructure that underpins all pricing operations.
+    While the <code>OptionModels</code> define <em>what</em> to price, this directory defines <em>how</em> the
+    underlying random process is simulated.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>📁 Contents</h2>
+  <table>
+    <tr><th>File</th><th>Description</th></tr>
+    <tr><td><code>MonteCarloSimulator.cs</code></td><td>Implements the Monte Carlo simulation engine with support for plain, antithetic, control variate, and quasi-random (Van der Corput) modes.</td></tr>
+    <tr><td><code>RandomNumberGenerator.cs</code></td><td>Provides seeded normal random draws using the Box–Muller transform for reproducible path generation.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h2>🎲 MonteCarloSimulator.cs</h2>
+
+  <p>
+    The <code>MonteCarloSimulator</code> class encapsulates the stochastic simulation logic for generating
+    asset price paths under the <strong>Geometric Brownian Motion (GBM)</strong> model:
+  </p>
+
+  <p>$$
+  dS_t = \mu S_t \, dt + \sigma S_t \, dW_t
+  $$</p>
+
+  <p>
+    In risk-neutral valuation, $\mu$ is replaced by the risk-free rate $r$, and the discrete-time
+    approximation used in simulation becomes:
+  </p>
+
+  <p>$$
+  S_{t+\Delta t} = S_t \exp\left[\left(r - \frac{1}{2}\sigma^2\right)\Delta t + \sigma \sqrt{\Delta t} Z\right],
+  $$</p>
+
+  <p>
+    where $Z \sim \mathcal{N}(0, 1)$ are independent standard normal draws.
+  </p>
+
+  <h3>Supported Simulation Modes</h3>
+  <table>
+    <tr><th>Mode</th><th>Description</th></tr>
+    <tr><td><code>Plain</code></td><td>Standard Monte Carlo using independent standard normal draws.</td></tr>
+    <tr><td><code>Antithetic</code></td><td>Generates mirrored pairs of normal variates $(Z, -Z)$ to reduce variance.</td></tr>
+    <tr><td><code>ControlVariate</code></td><td>Incorporates a delta-hedged control variate to improve estimator efficiency.</td></tr>
+    <tr><td><code>AntitheticAndControlVariate</code></td><td>Combines antithetic sampling with control variates for maximum variance reduction.</td></tr>
+    <tr><td><code>VanDerCorput</code></td><td>Uses quasi-random sequences (Van der Corput) for low-discrepancy path generation.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h3>Core Design</h3>
+
+  <ul>
+    <li>All modes share the same <code>Simulate()</code> entry point.</li>
+    <li>Each path evolves using precomputed drift and volatility step terms.</li>
+    <li>Parallelized with <code>Parallel.For</code> to utilize all available CPU cores.</li>
+    <li>Returns a <code>SimulationOutput</code> object containing terminal prices, full paths, and optional hedge PnL data.</li>
+  </ul>
+
+  <h4>Function Signatures</h4>
+  <pre><code>public static SimulationOutput Simulate(SimulationParameters p, bool keepPaths = false)</code></pre>
+
+  <h4>Output Structure</h4>
+  <table>
+    <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>Terminals</code></td><td><code>List&lt;double&gt;</code></td><td>Final simulated asset prices at expiry.</td></tr>
+    <tr><td><code>Paths</code></td><td><code>List&lt;double[]&gt;?</code></td><td>Full simulated price paths (optional, if <code>keepPaths = true</code>).</td></tr>
+    <tr><td><code>HedgePnL</code></td><td><code>List&lt;double&gt;?</code></td><td>Control variate hedge profit and loss for variance reduction.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h2>🧮 Numerical Methods</h2>
+
+  <h3>1️⃣ Box–Muller Transformation</h3>
+  <p>
+    The Box–Muller method converts uniform random variables $(U_1, U_2)$ into standard normals:
+  </p>
+
+  <p>$$
+  Z = \sqrt{-2 \ln U_1} \cos(2\pi U_2)
+  $$</p>
+
+  <p>
+    This is implemented internally through <code>RandomNumberGenerator.NextStandardNormal()</code>.
+  </p>
+
+  <h3>2️⃣ Antithetic Variates</h3>
+  <p>
+    For every generated $Z$, its negative counterpart $-Z$ is also simulated. The paired payoffs
+    are averaged, producing a lower-variance estimator of the expected value.
+  </p>
+
+  <h3>3️⃣ Control Variates (Delta-Hedged Estimator)</h3>
+  <p>
+    A delta-hedged control variate approach leverages the analytical Black–Scholes delta to stabilize
+    Monte Carlo payoffs. At each step, the simulator adjusts a synthetic hedge portfolio:
+  </p>
+
+  <p>$$
+  \text{PnL}_t = \Delta_t (S_{t+1} - S_t) + r\,\text{cash}_t \Delta t
+  $$</p>
+
+  <p>
+    The final discounted hedging profit acts as a correlated control variate, reducing the overall variance
+    of the option price estimator.
+  </p>
+
+  <h3>4️⃣ Quasi-Random (Van der Corput) Sampling</h3>
+  <p>
+    Instead of pseudo-random draws, quasi-random sequences ensure more uniform coverage of the sample space.
+    The implementation uses radical-inverse generation with prime bases $(b_1, b_2)$:
+  </p>
+
+  <p>$$
+  \text{VdC}(n, b) = \sum_{k=0}^{\infty} \frac{a_k}{b^{k+1}}, \quad n = (a_0, a_1, \dots)
+  $$</p>
+
+  <p>
+    These are transformed via Box–Muller to yield correlated quasi-normal variates.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🔢 RandomNumberGenerator.cs</h2>
+
+  <p>
+    The <code>RandomNumberGenerator</code> class provides simple, reproducible access to
+    standard normal random variables using the <strong>Box–Muller transform</strong>.
+  </p>
+
+  <h3>Methods</h3>
+  <table>
+    <tr><th>Method</th><th>Description</th></tr>
+    <tr><td><code>Seed(int seed)</code></td><td>Resets the RNG with a fixed seed for reproducibility.</td></tr>
+    <tr><td><code>NextStandardNormal()</code></td><td>Generates a single draw from $\mathcal{N}(0, 1)$ using Box–Muller.</td></tr>
+  </table>
+
+  <p>
+    This lightweight generator ensures independence between simulation threads and avoids reliance
+    on external libraries. In quasi-random modes, it is bypassed in favor of deterministic Van der Corput sampling.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🧩 Integration with OptionModels</h2>
+  <p>
+    The <code>MonteCarloSimulator</code> is the central computational engine used by all option types.
+    It interacts directly with <code>SimulationParameters</code> to configure stochastic and numerical settings,
+    and returns results to <code>OptionBase</code> for payoff evaluation and Greek computation.
+  </p>
+
+  <p>$$
+  \text{SimulationParameters} \Rightarrow \text{MonteCarloSimulator} \Rightarrow \text{OptionModel} \Rightarrow \text{PricingResult}
+  $$</p>
+
+  <p>
+    This modular architecture ensures separation of concerns: the simulation layer focuses purely on
+    mathematical path generation, while the financial models handle payoff interpretation.
+  </p>
+
+</body>
+</html>
+
+
+

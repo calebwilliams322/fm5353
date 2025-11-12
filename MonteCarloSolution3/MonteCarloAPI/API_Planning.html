@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monte Carlo API Design & Development Plan</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      color: #222;
+      line-height: 1.6;
+      margin: 2rem auto;
+      max-width: 1000px;
+    }
+    h1, h2, h3 {
+      color: #003366;
+    }
+    h4 {
+      color: #004c99;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th {
+      background-color: #f0f4fa;
+    }
+    code {
+      background-color: #f6f8fa;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 0.95em;
+    }
+    pre {
+      background-color: #f9f9f9;
+      border-left: 4px solid #004c99;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .divider {
+      border-top: 2px solid #eee;
+      margin: 2rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧭 Monte Carlo API Design & Development Plan</h1>
+
+  <p>
+    This document outlines the architecture, structure, and implementation roadmap for the
+    <strong>Monte Carlo Option Pricing API</strong>. The API will expose the functionality of the
+    existing console-based pricing system—built on modular <code>OptionModels</code> and <code>Simulation</code>
+    classes—through a clean, scalable, and asynchronous web interface.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>⚙️ Design Philosophy</h2>
+
+  <p>
+    The API should be:
+    <ul>
+      <li><strong>Performant</strong> — use asynchronous <code>Task</code>-based methods to handle long-running simulations without blocking threads.</li>
+      <li><strong>Stateless</strong> — each request should encapsulate its own simulation parameters and return self-contained results.</li>
+      <li><strong>Modular</strong> — maintain separation between controllers, services, and models, just like the core pricing system.</li>
+      <li><strong>Transparent</strong> — provide introspection routes (metadata, health checks) for debugging and automation.</li>
+    </ul>
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🏗️ Architecture Overview</h2>
+
+  <p>
+    The API builds on the ASP.NET Core <code>--use-controllers</code> template and integrates directly with
+    the existing backend classes:
+  </p>
+
+  <p>$$
+  \text{OptionParameters + SimulationParameters} \Rightarrow
+  \text{MonteCarloSimulator} \Rightarrow
+  \text{OptionModel} \Rightarrow
+  \text{PricingResult (JSON)}
+  $$</p>
+
+  <h4>Project Structure</h4>
+  <table>
+    <tr><th>Directory</th><th>Purpose</th></tr>
+    <tr><td><code>Controllers/</code></td><td>Entry points for all HTTP endpoints.</td></tr>
+    <tr><td><code>Services/</code></td><td>Implements business logic, invoking the Monte Carlo simulator and returning results.</td></tr>
+    <tr><td><code>Models/</code></td><td>Contains DTOs for requests and responses, mirroring <code>OptionParameters</code> and <code>PricingResult</code>.</td></tr>
+    <tr><td><code>Data/</code></td><td>(Optional) In-memory or persistent storage for saved option configurations.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h2>🌐 Endpoint Structure</h2>
+
+  <h3>1️⃣ Options Endpoints</h3>
+  <table>
+    <tr><th>Method</th><th>Route</th><th>Description</th></tr>
+    <tr><td>GET</td><td><code>/api/options</code></td><td>List all stored option templates.</td></tr>
+    <tr><td>GET</td><td><code>/api/options/{id}</code></td><td>Retrieve a single saved option definition.</td></tr>
+    <tr><td>POST</td><td><code>/api/options</code></td><td>Create and store a new option configuration.</td></tr>
+    <tr><td>PUT</td><td><code>/api/options/{id}</code></td><td>Update an existing option configuration.</td></tr>
+    <tr><td>DELETE</td><td><code>/api/options/{id}</code></td><td>Remove an option from storage.</td></tr>
+  </table>
+
+  <h3>2️⃣ Pricing Endpoints</h3>
+  <table>
+    <tr><th>Method</th><th>Route</th><th>Description</th></tr>
+    <tr><td>POST</td><td><code>/api/price</code></td><td>Run a one-off pricing simulation from a JSON payload.</td></tr>
+    <tr><td>POST</td><td><code>/api/options/{id}/price</code></td><td>Price a saved option configuration by ID.</td></tr>
+    <tr><td>POST</td><td><code>/api/price/batch</code></td><td>Price multiple instruments in a single request.</td></tr>
+  </table>
+
+  <h3>3️⃣ Metadata & Health</h3>
+  <table>
+    <tr><th>Method</th><th>Route</th><th>Description</th></tr>
+    <tr><td>GET</td><td><code>/api/meta/option-types</code></td><td>Return supported option model types (European, Asian, etc.).</td></tr>
+    <tr><td>GET</td><td><code>/api/meta/simulation-modes</code></td><td>Return available simulation strategies (Plain, Antithetic, etc.).</td></tr>
+    <tr><td>GET</td><td><code>/api/meta/version</code></td><td>Return build metadata, available types, and environment info.</td></tr>
+    <tr><td>GET</td><td><code>/api/health</code></td><td>Return system readiness and performance status.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h2>⚡ Asynchronous Execution</h2>
+
+  <p>
+    Monte Carlo simulations are computationally intensive and may run for several seconds depending on
+    the number of paths. To prevent blocking the web server, the API will use the C# <code>async</code> / <code>await</code> pattern.
+  </p>
+
+  <h4>Core Concepts</h4>
+  <ul>
+    <li><code>async</code> marks a method that performs asynchronous work.</li>
+    <li><code>await</code> suspends execution until the awaited task completes, freeing the thread for other requests.</li>
+    <li>All controller methods returning data will use <code>Task&lt;IActionResult&gt;</code>.</li>
+  </ul>
+
+  <h4>Example Pattern</h4>
+  <pre><code>[HttpPost("price")]
+public async Task&lt;IActionResult&gt; PriceOption([FromBody] OptionDTO dto)
+{
+    // Run long-running Monte Carlo simulation asynchronously
+    var result = await _pricingService.RunMonteCarloAsync(dto);
+    return Ok(result);
+}</code></pre>
+
+  <p>
+    This pattern ensures that each request’s computation is performed in parallel without consuming
+    dedicated threads, maintaining responsiveness even with multiple users.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🩺 Health & Status Routes</h2>
+
+  <p>
+    Every controller will expose a lightweight <code>/status</code> route to verify availability:
+  </p>
+
+  <pre><code>[HttpGet("status")]
+public IActionResult Status() 
+{
+    return Ok(new { status = "Healthy", timestamp = DateTime.UtcNow });
+}</code></pre>
+
+  <p>
+    These routes will later integrate with monitoring dashboards or load balancers to confirm
+    system readiness before traffic is routed to the instance.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🧱 Development Phases</h2>
+
+  <table>
+    <tr><th>Phase</th><th>Goal</th></tr>
+    <tr><td>1️⃣ Setup</td><td>Create new Web API project and add references to existing OptionModels and Simulation assemblies.</td></tr>
+    <tr><td>2️⃣ Models</td><td>Implement <code>OptionDTO</code> and map to <code>OptionParameters</code> and <code>SimulationParameters</code>.</td></tr>
+    <tr><td>3️⃣ Services</td><td>Create <code>OptionPricingService</code> with async wrappers around Monte Carlo simulations.</td></tr>
+    <tr><td>4️⃣ Controllers</td><td>Build <code>OptionsController</code>, <code>PricingController</code>, and <code>MetaController</code> with full routing.</td></tr>
+    <tr><td>5️⃣ Validation</td><td>Integrate simple input validation and error responses.</td></tr>
+    <tr><td>6️⃣ Health Checks</td><td>Add per-controller <code>/status</code> endpoints and a global <code>/api/health</code>.</td></tr>
+    <tr><td>7️⃣ Documentation</td><td>Enable Swagger / OpenAPI for live endpoint testing.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h2>🚀 Summary</h2>
+
+  <ul>
+    <li>Use existing Monte Carlo backend code directly—no new simulation layer needed.</li>
+    <li>Adopt <code>async</code> / <code>await</code> to handle long-running pricing tasks efficiently.</li>
+    <li>Expose clean, RESTful endpoints for pricing, metadata, and health checks.</li>
+    <li>Keep architecture modular: Controllers → Services → Models → Core Logic.</li>
+    <li>Prepare for future scalability (background task handling, persistent database, etc.).</li>
+  </ul>
+
+</body>
+</html>
