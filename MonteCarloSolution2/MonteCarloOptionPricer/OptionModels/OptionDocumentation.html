@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OptionModels — MonteCarlo Option Pricer</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      color: #222;
+      line-height: 1.6;
+      margin: 2rem auto;
+      max-width: 1000px;
+    }
+    h1, h2, h3 {
+      color: #003366;
+    }
+    h4 {
+      color: #004c99;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1rem 0;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th {
+      background-color: #f0f4fa;
+    }
+    code {
+      background-color: #f6f8fa;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 0.95em;
+    }
+    pre {
+      background-color: #f9f9f9;
+      border-left: 4px solid #004c99;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .divider {
+      border-top: 2px solid #eee;
+      margin: 2rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧭 OptionModels Directory — MonteCarlo Option Pricer</h1>
+
+  <p>
+    The <strong>OptionModels</strong> directory defines the <em>financial instrument layer</em> of the Monte Carlo Option Pricer.
+    Each class in this folder represents a distinct <strong>derivative contract</strong>—such as European, Asian, or Barrier options—
+    all built on a common interface to ensure consistent pricing, simulation, and Greek computation.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>📁 Contents</h2>
+  <table>
+    <tr><th>File</th><th>Description</th></tr>
+    <tr><td><code>IOption.cs</code></td><td>Defines the core interface that all option types must implement, establishing a unified pricing API.</td></tr>
+    <tr><td><code>EuropeanOption.cs</code></td><td>Implements a standard European call/put option using Monte Carlo simulation.</td></tr>
+    <tr><td><code>AsianOption.cs</code></td><td>Implements an average-price (Asian) derivative using arithmetic or geometric means.</td></tr>
+    <tr><td><code>DigitalOption.cs</code></td><td>Defines binary options (cash-or-nothing or asset-or-nothing).</td></tr>
+    <tr><td><code>BarrierOption.cs</code></td><td>Implements knock-in/knock-out barrier options with path dependency.</td></tr>
+    <tr><td><code>LookbackOption.cs</code></td><td>Models options dependent on maximum or minimum path values over time.</td></tr>
+    <tr><td><code>RangeOption.cs</code></td><td>Captures options whose payoff depends on total realized price range.</td></tr>
+  </table>
+
+  <div class="divider"></div>
+
+  <h2>🏗️ Design Philosophy</h2>
+
+  <h3>Layered Architecture</h3>
+  <table>
+    <tr><th>Layer</th><th>Responsibility</th></tr>
+    <tr><td><code>OptionModels/</code></td><td>Defines <em>what</em> an option is and how its payoff should be computed.</td></tr>
+    <tr><td><code>Simulation/</code></td><td>Implements <em>how</em> the underlying asset paths evolve using stochastic simulation.</td></tr>
+    <tr><td><code>Models/</code></td><td>Contains shared data containers and configuration classes (e.g., <code>SimulationParameters</code>, <code>PricingResult</code>).</td></tr>
+  </table>
+
+  <p>
+    The <code>OptionModels</code> layer <strong>never reimplements</strong> simulation logic.
+    All pricing classes delegate the actual path generation to the shared <code>MonteCarloSimulator</code>,
+    maintaining a clean separation of concerns between <em>financial structure</em> and <em>numerical method</em>.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>⚙️ Interface: <code>IOption</code></h2>
+  <pre><code>public interface IOption
+{
+    double Strike { get; set; }
+    DateTime Expiry { get; set; }
+    bool IsCall { get; set; }
+
+    PricingResult GetPrice(
+        double volatility,
+        double riskFreeRate,
+        int timeSteps,
+        int numberOfPaths,
+        bool calculateGreeks,
+        bool useMultithreading = true,
+        SimulationMode simMode = SimulationMode.Plain
+    );
+}</code></pre>
+
+  <p>
+    The <code>IOption</code> interface defines the core pricing entry point shared across all option types.  
+    Each implementation (e.g., European, Barrier, Lookback) defines its own <code>BuildPayoffs()</code> function
+    while inheriting standardized logic for simulation and Greek computation from <code>OptionBase</code>.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🇪🇺 European Option</h2>
+  <p>
+    Represents a standard call or put depending only on the terminal underlying price 
+    $S_T$. It serves as the benchmark model for validating Monte Carlo accuracy.
+  </p>
+
+  <h4>Payoff Formulas</h4>
+  <table>
+    <tr><th>Type</th><th>Payoff</th></tr>
+    <tr><td>Call</td><td>$\max(S_T - K, 0)$</td></tr>
+    <tr><td>Put</td><td>$\max(K - S_T, 0)$</td></tr>
+  </table>
+
+  <p>
+    Pricing follows a standard Monte Carlo process: simulate terminal prices, compute discounted
+    expected payoffs, and estimate standard error. Greeks are computed via finite-difference
+    bump-and-revalue with fixed random seeds for variance reduction.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🌏 Asian Option</h2>
+  <p>
+    Represents average-price derivatives where payoff depends on the mean price observed along each simulated path.
+    It supports both <strong>arithmetic</strong> and <strong>geometric</strong> averaging.
+  </p>
+
+  <h4>Payoff Definitions</h4>
+  <table>
+    <tr><th>Averaging</th><th>Call Payoff</th><th>Put Payoff</th></tr>
+    <tr><td>Arithmetic</td><td>$\max(\bar{S}_{arith} - K, 0)$</td><td>$\max(K - \bar{S}_{arith}, 0)$</td></tr>
+    <tr><td>Geometric</td><td>$\max(\bar{S}_{geom} - K, 0)$</td><td>$\max(K - \bar{S}_{geom}, 0)$</td></tr>
+  </table>
+
+  <p>
+    The class requires full path data (<code>keepPaths: true</code>) and benefits from faster convergence
+    due to reduced variance introduced by averaging.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🎯 Digital Option</h2>
+  <p>
+    Models binary options that pay either a fixed amount (cash-or-nothing) or the asset itself (asset-or-nothing)
+    based on whether the terminal price finishes above or below the strike.
+  </p>
+
+  <table>
+    <tr><th>Type</th><th>Condition</th><th>Payoff</th></tr>
+    <tr><td>Cash-or-Nothing Call</td><td>$S_T > K$</td><td>Fixed cash payout</td></tr>
+    <tr><td>Asset-or-Nothing Put</td><td>$S_T < K$</td><td>Pays underlying asset</td></tr>
+  </table>
+
+  <p>
+    Digital options are used for modeling binary outcomes or approximating delta-sensitive instruments.
+    Control variates help stabilize their inherently discontinuous payoffs.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🚧 Barrier Option</h2>
+  <p>
+    Represents knock-in and knock-out contracts where payoff depends on whether the underlying price
+    breaches a specified barrier level during the simulation period.
+  </p>
+
+  <p>
+    The class evaluates barrier conditions by inspecting each simulated path and requires <code>keepPaths: true</code>.
+    It supports both upward and downward barriers and satisfies the barrier parity:
+  </p>
+
+  <p>$$\text{Knock-In} + \text{Knock-Out} \approx \text{European Option}$$</p>
+
+  <div class="divider"></div>
+
+  <h2>🔍 Lookback Option</h2>
+  <p>
+    A path-dependent option whose payoff depends on the <strong>maximum or minimum price</strong> observed
+    throughout the simulation horizon. Provides “best execution” payoff behavior, making it valuable in volatile markets.
+  </p>
+
+  <h4>Payoff Definitions</h4>
+  <table>
+    <tr><th>Type</th><th>Call Payoff</th><th>Put Payoff</th></tr>
+    <tr><td>Fixed-Strike</td><td>$\max(\max(S_t) - K, 0)$</td><td>$\max(K - \min(S_t), 0)$</td></tr>
+  </table>
+
+  <p>
+    Requires full paths and can be extended to floating-strike variants by modifying the payoff logic.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>📈 Range Option</h2>
+  <p>
+    A volatility-driven derivative whose payoff equals the difference between the maximum and minimum underlying prices
+    during the option’s life. It has no directional bias and purely measures realized volatility.
+  </p>
+
+  <table>
+    <tr><th>Payoff</th><th>Formula</th></tr>
+    <tr><td>Range Option</td><td>$\text{Payoff} = \max(S_t) - \min(S_t)$</td></tr>
+  </table>
+
+  <p>
+    Requires full path data and benefits from high-volatility environments.
+    Greeks are estimated with the same bump-and-revalue technique as other models.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>🧩 Common Design Traits</h2>
+  <ul>
+    <li>All classes implement the <code>IOption</code> interface.</li>
+    <li>All pricing calls delegate to the shared <code>MonteCarloSimulator</code>.</li>
+    <li>All Greeks use finite-difference with fixed RNG seeds for reproducibility.</li>
+    <li>Each option defines only its unique payoff logic—simulation and discounting are unified.</li>
+    <li>The framework is fully extensible to new exotic options.</li>
+  </ul>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
