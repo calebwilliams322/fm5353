@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/MonteCarloAPI.csproj": {}
+    "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloAPI/MonteCarloAPI.csproj": {}
   },
   "projects": {
-    "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/MonteCarloAPI.csproj": {
+    "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloAPI/MonteCarloAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/MonteCarloAPI.csproj",
+        "projectUniqueName": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloAPI/MonteCarloAPI.csproj",
         "projectName": "MonteCarloAPI",
-        "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/MonteCarloAPI.csproj",
+        "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloAPI/MonteCarloAPI.csproj",
         "packagesPath": "/Users/calebwilliams/.nuget/packages/",
-        "outputPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/",
+        "outputPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloAPI/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/calebwilliams/.nuget/NuGet/NuGet.Config"
@@ -26,8 +26,8 @@
           "net9.0": {
             "targetAlias": "net9.0",
             "projectReferences": {
-              "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj": {
-                "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj"
+              "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj": {
+                "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj"
               }
             }
           }
@@ -76,14 +76,14 @@
         }
       }
     },
-    "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj": {
+    "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
+        "projectUniqueName": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
         "projectName": "MonteCarloOptionPricer",
-        "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
+        "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
         "packagesPath": "/Users/calebwilliams/.nuget/packages/",
-        "outputPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/obj/",
+        "outputPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/calebwilliams/.nuget/NuGet/NuGet.Config"

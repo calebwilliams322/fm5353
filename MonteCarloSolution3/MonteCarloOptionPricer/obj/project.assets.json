@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
+      "projectUniqueName": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
       "projectName": "MonteCarloOptionPricer",
-      "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
+      "projectPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/MonteCarloOptionPricer.csproj",
       "packagesPath": "/Users/calebwilliams/.nuget/packages/",
-      "outputPath": "/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloOptionPricer/obj/",
+      "outputPath": "/Users/calebwilliams/fm5353/MonteCarloSolution3/MonteCarloOptionPricer/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/calebwilliams/.nuget/NuGet/NuGet.Config"
