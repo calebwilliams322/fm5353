@@ -24,8 +24,18 @@ namespace MonteCarloAPI.Controllers
             if (newOption?.OptionParameters == null)
                 return BadRequest(new { message = "OptionParameters are required." });
 
-            var created = await _optionService.AddOptionAsync(newOption);
-            return CreatedAtAction(nameof(GetOptionById), new { id = created.Id }, created);
+            if (newOption.StockId <= 0)
+                return BadRequest(new { message = "StockId is required and must be greater than 0." });
+
+            try
+            {
+                var created = await _optionService.AddOptionAsync(newOption);
+                return CreatedAtAction(nameof(GetOptionById), new { id = created.Id }, created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         // GET: /api/options/{id}
@@ -60,11 +70,21 @@ namespace MonteCarloAPI.Controllers
             if (updatedOption?.OptionParameters == null)
                 return BadRequest(new { message = "OptionParameters are required." });
 
-            var result = await _optionService.UpdateOptionAsync(id, updatedOption);
-            if (result == null)
-                return NotFound(new { message = $"Option with ID {id} not found." });
+            if (updatedOption.StockId <= 0)
+                return BadRequest(new { message = "StockId is required and must be greater than 0." });
 
-            return Ok(result);
+            try
+            {
+                var result = await _optionService.UpdateOptionAsync(id, updatedOption);
+                if (result == null)
+                    return NotFound(new { message = $"Option with ID {id} not found." });
+
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         // DELETE: /api/options/{id}

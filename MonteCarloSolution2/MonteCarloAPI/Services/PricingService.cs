@@ -6,8 +6,25 @@ namespace MonteCarloAPI.Services
 {
     public class PricingService
     {
+        private readonly RateCurveService _rateCurveService;
+
+        public PricingService(RateCurveService rateCurveService)
+        {
+            _rateCurveService = rateCurveService;
+        }
+
         public Task<PricingResultDTO> PriceOptionAsync(OptionConfigDTO optionConfig, SimulationParametersDTO simParams)
         {
+            // Calculate time to expiry from the option's expiry date
+            double timeToExpiry = RateCurveService.CalculateTimeToExpiry(optionConfig.OptionParameters.ExpiryDate);
+
+            // Look up risk-free rate from the rate curve based on time to expiry
+            double riskFreeRate = _rateCurveService.GetRate(timeToExpiry);
+
+            // Update simParams with calculated values for downstream use
+            simParams.TimeToExpiry = timeToExpiry;
+            simParams.RiskFreeRate = riskFreeRate;
+
             // Validate simulation parameters
             var validation = ValidateSimulationParameters(simParams, optionConfig.OptionParameters);
             if (!validation.IsValid)
@@ -22,7 +39,7 @@ namespace MonteCarloAPI.Services
             // Price the option
             var result = option.GetPrice(
                 volatility: simParams.Volatility,
-                riskFreeRate: simParams.RiskFreeRate,
+                riskFreeRate: riskFreeRate,
                 timeSteps: simParams.TimeSteps,
                 numberOfPaths: simParams.NumberOfPaths,
                 calculateGreeks: true,
@@ -106,7 +123,7 @@ namespace MonteCarloAPI.Services
         private IOption CreateOption(OptionConfigDTO config, double initialPrice)
         {
             var optParams = config.OptionParameters;
-            var expiry = DateTime.Today.AddYears(1); // Default 1 year expiry
+            var expiry = optParams.ExpiryDate; // Use actual expiry from option config
 
             return (OptionType)optParams.OptionType switch
             {

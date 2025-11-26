@@ -1,7 +1,7 @@
 
-// using Microsoft.AspNetCore.Builder;
-// using Microsoft.Extensions.DependencyInjection;
-// using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
+using MonteCarloAPI.Configuration;
+using MonteCarloAPI.Data;
 using MonteCarloAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,14 +13,49 @@ var builder = WebApplication.CreateBuilder(args);
 // Add controllers (so endpoints like /api/options work)
 builder.Services.AddControllers();
 
+// Register PostgreSQL DbContext
+builder.Services.AddDbContext<MonteCarloDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Register OptionService
-// - Singleton for in-memory storage (same data across all requests)
-// - Later: change to Scoped when using EF Core/Postgres
-builder.Services.AddSingleton<OptionService>();
+// - Scoped for database access (new DbContext per request)
+builder.Services.AddScoped<OptionService>();
 
 // Register PricingService
 // - Singleton is fine since it's stateless
 builder.Services.AddSingleton<PricingService>();
+
+// Register PortfolioService
+// - Scoped for database access (new DbContext per request)
+builder.Services.AddScoped<PortfolioService>();
+
+// Register StockService
+// - Scoped for database access (new DbContext per request)
+builder.Services.AddScoped<StockService>();
+
+// Register ExchangeService
+// - Scoped for database access (new DbContext per request)
+builder.Services.AddScoped<ExchangeService>();
+
+// Configure Alpaca API settings
+builder.Services.Configure<AlpacaConfiguration>(
+    builder.Configuration.GetSection("Alpaca"));
+
+// Configure Rate Curve settings
+builder.Services.Configure<RateCurveConfiguration>(
+    builder.Configuration.GetSection("RateCurve"));
+
+// Register RateCurveService
+// - Singleton since it only reads from configuration
+builder.Services.AddSingleton<RateCurveService>();
+
+// Register AlpacaService
+// - Scoped for API access
+builder.Services.AddScoped<AlpacaService>();
+
+// Register StockPriceUpdateService as a hosted background service
+// - Runs in the background to periodically update stock prices
+builder.Services.AddHostedService<StockPriceUpdateService>();
 
 // Add API documentation via Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -46,6 +81,10 @@ var app = builder.Build();
 // 3️⃣  Configure the HTTP Request Pipeline
 // ------------------------------------------------------------
 
+// Enable serving static files from wwwroot folder
+app.UseDefaultFiles();  // Makes index.html the default file
+app.UseStaticFiles();   // Enables serving files from wwwroot
+
 // Enable Swagger UI for testing and documentation
 if (app.Environment.IsDevelopment())
 {
@@ -53,7 +92,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "MonteCarloAPI v1");
-        c.RoutePrefix = string.Empty; // So you can hit Swagger at the root URL
+        c.RoutePrefix = "swagger"; // Move Swagger to /swagger instead of root
     });
 }
 

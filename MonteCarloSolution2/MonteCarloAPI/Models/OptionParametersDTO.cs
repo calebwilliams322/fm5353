@@ -10,6 +10,7 @@ namespace MonteCarloAPI.Models
         public OptionType OptionType { get; set; } = OptionType.European;
         public double Strike { get; set; } = 100.0;
         public bool IsCall { get; set; } = true;
+        public DateTime ExpiryDate { get; set; } = DateTime.UtcNow.AddYears(1); // Default 1 year from now
 
         // --- Asian option parameters ---
         public AveragingType AveragingType { get; set; } = AveragingType.Arithmetic;

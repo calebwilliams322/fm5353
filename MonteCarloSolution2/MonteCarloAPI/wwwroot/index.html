@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeltaDesk</title>
+    <link rel="stylesheet" href="/css/styles.css?v=14">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Fixed Left Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>DeltaDesk</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-view="home">
+                    <span class="nav-label">Home</span>
+                </button>
+                <button class="nav-btn" data-view="view-exchanges">
+                    <span class="nav-label">Exchanges</span>
+                </button>
+                <button class="nav-btn" data-view="view-stocks">
+                    <span class="nav-label">View Stocks</span>
+                </button>
+                <button class="nav-btn" data-view="create-option">
+                    <span class="nav-label">Create Options</span>
+                </button>
+                <button class="nav-btn" data-view="input-trades">
+                    <span class="nav-label">Input Trades</span>
+                </button>
+                <button class="nav-btn" data-view="view-positions">
+                    <span class="nav-label">View Positions</span>
+                </button>
+                <button class="nav-btn" data-view="view-portfolio">
+                    <span class="nav-label">View Portfolio</span>
+                </button>
+                <button class="nav-btn" id="instructions-btn">
+                    <span class="nav-label">Instructions</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Home View (Default) -->
+            <section id="home-view" class="view active">
+                <div class="view-header">
+                    <h2>Portfolio Dashboard</h2>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <div class="card-header">Total P&L</div>
+                        <div class="card-value" id="total-pnl">--</div>
+                        <div class="card-subtext" id="pnl-percentage">--</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header">Total Value</div>
+                        <div class="card-value" id="total-value">--</div>
+                        <div class="card-subtext">Cash + Positions</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header">Cash</div>
+                        <div class="card-value" id="cash-balance">--</div>
+                        <div class="card-subtext">Available</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header">Position Value</div>
+                        <div class="card-value" id="position-value">--</div>
+                        <div class="card-subtext">Current Holdings</div>
+                    </div>
+                </div>
+
+                <!-- Separate Stock and Option P&L -->
+                <div class="dashboard-grid">
+                    <div class="dashboard-card" style="border-top-color: #0369a1;">
+                        <div class="card-header"><span class="asset-type-badge stock">Stock</span> P&L</div>
+                        <div class="card-value" id="stock-pnl">--</div>
+                        <div class="card-subtext" id="stock-pnl-percentage">--</div>
+                    </div>
+                    <div class="dashboard-card" style="border-top-color: #0369a1;">
+                        <div class="card-header"><span class="asset-type-badge stock">Stock</span> Value</div>
+                        <div class="card-value" id="stock-value">--</div>
+                        <div class="card-subtext">Market Price x Qty</div>
+                    </div>
+                    <div class="dashboard-card" style="border-top-color: #92400e;">
+                        <div class="card-header"><span class="asset-type-badge option">Option</span> P&L</div>
+                        <div class="card-value" id="option-pnl">--</div>
+                        <div class="card-subtext" id="option-pnl-percentage">--</div>
+                    </div>
+                    <div class="dashboard-card" style="border-top-color: #92400e;">
+                        <div class="card-header"><span class="asset-type-badge option">Option</span> Value</div>
+                        <div class="card-value" id="option-value">--</div>
+                        <div class="card-subtext">Monte Carlo Priced</div>
+                    </div>
+                </div>
+
+                <div class="portfolio-selector">
+                    <label for="selected-portfolio">Select Portfolio:</label>
+                    <select id="selected-portfolio">
+                        <option value="">-- Choose Portfolio --</option>
+                    </select>
+                    <button class="btn btn-primary" id="create-portfolio-btn">+ New Portfolio</button>
+                    <button class="btn btn-primary" id="update-pnl-btn">Update P&L</button>
+                </div>
+
+                <div id="portfolio-greeks" class="greeks-section" style="display: none;">
+                    <h3>Portfolio Greeks <span class="greeks-note">(Options Only)</span></h3>
+                    <div class="greeks-grid">
+                        <div class="greek-item">
+                            <div class="greek-label">Delta (Δ)</div>
+                            <div class="greek-value" id="portfolio-delta">--</div>
+                        </div>
+                        <div class="greek-item">
+                            <div class="greek-label">Gamma (Γ)</div>
+                            <div class="greek-value" id="portfolio-gamma">--</div>
+                        </div>
+                        <div class="greek-item">
+                            <div class="greek-label">Vega (ν)</div>
+                            <div class="greek-value" id="portfolio-vega">--</div>
+                        </div>
+                        <div class="greek-item">
+                            <div class="greek-label">Theta (Θ)</div>
+                            <div class="greek-value" id="portfolio-theta">--</div>
+                        </div>
+                        <div class="greek-item">
+                            <div class="greek-label">Rho (ρ)</div>
+                            <div class="greek-value" id="portfolio-rho">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pnl-chart-section">
+                    <h3>Portfolio P&L History</h3>
+                    <div class="time-period-toggles">
+                        <button class="time-toggle" data-period="1d">1 Day</button>
+                        <button class="time-toggle" data-period="1w">1 Week</button>
+                        <button class="time-toggle active" data-period="1m">1 Month</button>
+                        <button class="time-toggle" data-period="1y">1 Year</button>
+                        <button class="time-toggle" data-period="5y">5 Years</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="pnl-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View Exchanges View -->
+            <section id="view-exchanges-view" class="view">
+                <div class="view-header">
+                    <h2>Stock Exchanges</h2>
+                    <p class="info-text">Note: This system uses a USD-based risk-free rate curve for all option pricing, regardless of exchange currency.</p>
+                </div>
+                <form id="create-exchange-form" class="form-container">
+                    <h3>Create New Exchange</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exchange-name">Exchange Name:</label>
+                            <input type="text" id="exchange-name" required placeholder="e.g., NASDAQ">
+                        </div>
+                        <div class="form-group">
+                            <label for="exchange-description">Description:</label>
+                            <input type="text" id="exchange-description" placeholder="e.g., National Association of Securities Dealers">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exchange-country">Country:</label>
+                            <input type="text" id="exchange-country" placeholder="e.g., USA">
+                        </div>
+                        <div class="form-group">
+                            <label for="exchange-currency">Currency:</label>
+                            <input type="text" id="exchange-currency" placeholder="e.g., USD" maxlength="10">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Exchange</button>
+                </form>
+                <div class="table-section">
+                    <h3>Existing Exchanges</h3>
+                    <div id="exchanges-table" class="data-table"></div>
+                </div>
+            </section>
+
+            <!-- View Stocks View -->
+            <section id="view-stocks-view" class="view">
+                <div class="view-header">
+                    <h2>Stock Universe</h2>
+                    <p class="info-text">Prices updated via Alpaca Markets API</p>
+                </div>
+                <div class="table-section">
+                    <div id="stocks-universe-table" class="data-table"></div>
+                </div>
+            </section>
+
+            <!-- Create Options View -->
+            <section id="create-option-view" class="view">
+                <div class="view-header">
+                    <h2>Create New Option</h2>
+                </div>
+                <form id="create-option-form" class="form-container">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="option-stock">Underlying Stock:</label>
+                            <select id="option-stock" required>
+                                <option value="">-- Select Stock --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="option-type">Option Type:</label>
+                            <select id="option-type" required>
+                                <option value="0">European</option>
+                                <option value="1">Asian</option>
+                                <option value="2">Digital</option>
+                                <option value="3">Barrier</option>
+                                <option value="4">Lookback</option>
+                                <option value="5">Range</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="is-call">Call/Put:</label>
+                            <select id="is-call" required>
+                                <option value="true">Call</option>
+                                <option value="false">Put</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="strike">Strike Price:</label>
+                            <input type="number" id="strike" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="expiry-date">Expiry Date:</label>
+                            <input type="date" id="expiry-date" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="barrier">Barrier (if applicable):</label>
+                            <input type="number" id="barrier" step="0.01" value="0">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Option</button>
+                </form>
+
+                <div class="table-section">
+                    <h3>Existing Options</h3>
+                    <div id="options-table" class="data-table"></div>
+                </div>
+            </section>
+
+            <!-- Input Trades View -->
+            <section id="input-trades-view" class="view">
+                <div class="view-header">
+                    <h2>Record New Trade</h2>
+                </div>
+
+                <!-- Pricing Section for Option Trade -->
+                <div id="option-pricing-section" class="form-container">
+                    <h3>Price Option Before Trading</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="price-trade-option">Select Option to Price:</label>
+                            <select id="price-trade-option">
+                                <option value="">-- Select Option --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <button type="button" class="btn btn-primary" id="price-trade-btn">Price This Option</button>
+                        </div>
+                    </div>
+                    <div id="trade-pricing-result" class="pricing-result" style="display: none;"></div>
+                </div>
+
+                <form id="record-trade-form" class="form-container">
+                    <h3>Record Trade</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trade-portfolio">Portfolio:</label>
+                            <select id="trade-portfolio" required>
+                                <option value="">-- Select Portfolio --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="trade-asset-type">Asset Type:</label>
+                            <select id="trade-asset-type" required>
+                                <option value="1">Option</option>
+                                <option value="0">Stock</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <!-- Stock selector (hidden by default) -->
+                        <div class="form-group" id="stock-selector-group" style="display: none;">
+                            <label for="trade-stock">Stock:</label>
+                            <select id="trade-stock">
+                                <option value="">-- Select Stock --</option>
+                            </select>
+                        </div>
+                        <!-- Option selector (shown by default) -->
+                        <div class="form-group" id="option-selector-group">
+                            <label for="trade-option">Option:</label>
+                            <select id="trade-option">
+                                <option value="">-- Select Option --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="trade-type">Trade Type:</label>
+                            <select id="trade-type" required>
+                                <option value="0">Buy</option>
+                                <option value="1">Sell</option>
+                                <option value="2">Close</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="quantity">Quantity:</label>
+                            <input type="number" id="quantity" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="price" id="price-label">Price per Contract:</label>
+                            <input type="number" id="price" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Notes (optional):</label>
+                        <textarea id="notes" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Record Trade</button>
+                </form>
+
+                <div class="table-section">
+                    <h3>Recent Trades</h3>
+                    <div id="trades-table" class="data-table"></div>
+                </div>
+            </section>
+
+            <!-- View Positions View -->
+            <section id="view-positions-view" class="view">
+                <div class="view-header">
+                    <h2>Current Positions</h2>
+                    <button class="btn btn-primary" id="price-all-positions-btn">Price All Positions</button>
+                </div>
+                <div class="portfolio-selector">
+                    <label for="positions-portfolio">Select Portfolio:</label>
+                    <select id="positions-portfolio">
+                        <option value="">-- Select Portfolio --</option>
+                    </select>
+                </div>
+                <div id="positions-table" class="data-table"></div>
+                <div id="positions-valuation" class="pricing-result" style="display: none;"></div>
+            </section>
+
+            <!-- Pricing History View -->
+            <section id="pricing-history-view" class="view">
+                <div class="view-header">
+                    <h2>Pricing History</h2>
+                </div>
+                <div class="table-section">
+                    <div id="pricing-history-table" class="data-table"></div>
+                </div>
+            </section>
+
+            <!-- View Portfolio View -->
+            <section id="view-portfolio-view" class="view">
+                <div class="view-header">
+                    <h2>Portfolio Management</h2>
+                </div>
+                <div class="portfolio-selector">
+                    <label for="portfolio-detail-select">Select Portfolio to View:</label>
+                    <select id="portfolio-detail-select">
+                        <option value="">-- Select Portfolio --</option>
+                    </select>
+                    <button class="btn btn-primary" id="price-portfolio-btn">Price Portfolio</button>
+                </div>
+                <div id="portfolio-detail-summary" class="pricing-result" style="display: none;"></div>
+                <div id="portfolios-table" class="data-table"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for creating portfolio -->
+    <div id="create-portfolio-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Portfolio</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="create-portfolio-form">
+                    <div class="form-group">
+                        <label for="portfolio-name">Portfolio Name:</label>
+                        <input type="text" id="portfolio-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="portfolio-description">Description:</label>
+                        <textarea id="portfolio-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="initial-cash">Initial Cash:</label>
+                        <input type="number" id="initial-cash" step="0.01" value="100000" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Portfolio</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loading-modal" class="modal">
+        <div class="modal-content loading-modal-content">
+            <div class="loading-spinner"></div>
+            <h3 class="loading-title">Pricing Portfolio...</h3>
+            <p class="loading-subtitle">This may take a few seconds</p>
+            <div class="loading-params">
+                <h4>Using Parameters:</h4>
+                <ul>
+                    <li>Time Steps: <strong>252</strong></li>
+                    <li>Simulation Paths: <strong>10,000</strong></li>
+                    <li>Volatility: <strong>20%</strong></li>
+                    <li>Risk-Free Rate: <strong>From rate curve</strong></li>
+                    <li>Time to Expiry: <strong>From option expiry</strong></li>
+                    <li>Simulation Mode: <strong>Plain Monte Carlo</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div id="instructions-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>How to Use the Portfolio Manager</h3>
+                <button class="modal-close" id="close-instructions-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="instructions-content">
+                    <section class="instruction-section">
+                        <h4>1. Create a Portfolio</h4>
+                        <p>Click "+ New Portfolio" on the dashboard to create a new portfolio with initial cash.</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>2. View Available Stocks</h4>
+                        <p>Navigate to "View Stocks" to see all available underlying stocks with real-time prices from Alpaca Markets API.</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>3. Create Options</h4>
+                        <p>Go to "Create Options" to design exotic options. Choose from European, Asian, Digital, Barrier, Lookback, or Range options.</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>4. Price an Option</h4>
+                        <p>Before trading, use the "Input Trades" tab to price an option with your desired market parameters (volatility, risk-free rate, simulation paths, etc.).</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>5. Record Trades</h4>
+                        <p>Use "Input Trades" to buy, sell, or close option positions. The system automatically updates your cash and positions.</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>6. Monitor Positions</h4>
+                        <p>View your current holdings in "View Positions" and price all positions to see unrealized P&L and Greeks (Delta, Gamma, Vega, Theta, Rho).</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>7. Portfolio Valuation</h4>
+                        <p>The dashboard automatically prices your entire portfolio using Monte Carlo simulation. This shows total value, P&L, and aggregated portfolio Greeks.</p>
+                    </section>
+
+                    <section class="instruction-section">
+                        <h4>Understanding Greeks</h4>
+                        <ul>
+                            <li><strong>Delta (Δ):</strong> Sensitivity to underlying price changes</li>
+                            <li><strong>Gamma (Γ):</strong> Rate of change of Delta</li>
+                            <li><strong>Vega (ν):</strong> Sensitivity to volatility changes</li>
+                            <li><strong>Theta (Θ):</strong> Time decay per day</li>
+                            <li><strong>Rho (ρ):</strong> Sensitivity to interest rate changes</li>
+                        </ul>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for market parameters -->
+    <div id="market-params-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Market Parameters</h3>
+                <button class="modal-close" id="close-params-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="market-params-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="param-stock-price">Current Stock Price (S₀):</label>
+                            <input type="number" id="param-stock-price" step="0.01" value="100" required readonly>
+                            <small class="field-note">Auto-populated from underlying stock</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="param-volatility">Volatility (σ):</label>
+                            <input type="number" id="param-volatility" step="0.01" value="0.2" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="param-time-to-expiry">Time to Expiry (years):</label>
+                            <input type="text" id="param-time-to-expiry" value="--" readonly>
+                            <small class="field-note">Auto-calculated from option's expiry date</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="param-risk-free-rate">Risk-Free Rate (r):</label>
+                            <input type="text" id="param-risk-free-rate" value="--" readonly>
+                            <small class="field-note">Auto-calculated from rate curve</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="param-time-steps">Time Steps:</label>
+                            <input type="number" id="param-time-steps" value="50" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="param-paths">Number of Paths:</label>
+                            <input type="number" id="param-paths" value="1000" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="param-sim-mode">Simulation Mode:</label>
+                        <select id="param-sim-mode" required>
+                            <option value="0">Plain Monte Carlo</option>
+                            <option value="1">Antithetic Variates</option>
+                            <option value="2">Control Variates</option>
+                            <option value="3">Antithetic + Control Variates</option>
+                            <option value="4">Van Der Corput (Quasi-Random)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Price with These Parameters</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option Pricing Result Popup Modal -->
+    <div id="option-pricing-result-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Option Pricing Result</h3>
+                <button class="modal-close" id="close-pricing-result-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="option-pricing-result-content">
+                <!-- Pricing result will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/js/app.js?v=14"></script>
+</body>
+</html>

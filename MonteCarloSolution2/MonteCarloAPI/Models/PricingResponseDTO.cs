@@ -4,7 +4,8 @@ namespace MonteCarloAPI.Models
     public class PricingResponseDTO
     {
         public OptionConfigDTO Option { get; set; } = new();
-        public PricingResultDTO PricingResult { get; set; } = new();
+        public PricingResultDTO? PricingResult { get; set; } = new();
         public SimulationParametersDTO SimulationParameters { get; set; } = new();
+        public string? ErrorMessage { get; set; }
     }
 }

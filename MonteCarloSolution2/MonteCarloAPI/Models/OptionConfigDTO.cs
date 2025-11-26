@@ -7,6 +7,8 @@ namespace MonteCarloAPI.Models
     public class OptionConfigDTO
     {
         public int Id { get; set; }                               // Internal ID or reference
+        public int StockId { get; set; }                          // Foreign key to underlying stock (required)
+        public StockDTO? Stock { get; set; }                      // Underlying stock information
         public OptionParametersDTO OptionParameters { get; set; } = new();
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
