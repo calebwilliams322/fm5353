@@ -138,6 +138,6 @@
 /Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/bin/Debug/net9.0/Newtonsoft.Json.dll
 /Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/bin/Debug/net9.0/Polly.dll
 /Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/bin/Debug/net9.0/Polly.Core.dll
-/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/Debug/net9.0/compressed/ath4ug4a1q-qszrn3ydsq.gz
-/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/Debug/net9.0/compressed/xhlxadpv09-hnlp3lcl9k.gz
-/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/Debug/net9.0/compressed/2ma27zxwf4-knmio1sx04.gz
+/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/Debug/net9.0/compressed/ath4ug4a1q-jnw97f052e.gz
+/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/Debug/net9.0/compressed/2ma27zxwf4-g7ck7yuvj1.gz
+/Users/calebwilliams/fm5353/MonteCarloSolution2/MonteCarloAPI/obj/Debug/net9.0/compressed/xhlxadpv09-q8vekmsug8.gz

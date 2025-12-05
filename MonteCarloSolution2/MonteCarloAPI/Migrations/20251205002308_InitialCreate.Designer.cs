@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MonteCarloAPI.Migrations
 {
     [DbContext(typeof(MonteCarloDbContext))]
-    [Migration("20251113050350_RemoveCommissionFromTrades")]
-    partial class RemoveCommissionFromTrades
+    [Migration("20251205002308_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,44 @@ namespace MonteCarloAPI.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("MonteCarloAPI.Data.ExchangeEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Exchanges");
+                });
 
             modelBuilder.Entity("MonteCarloAPI.Data.OptionEntity", b =>
                 {
@@ -53,6 +91,9 @@ namespace MonteCarloAPI.Migrations
                     b.Property<int?>("DigitalCondition")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("ExpiryDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsCall")
                         .HasColumnType("boolean");
 
@@ -68,6 +109,9 @@ namespace MonteCarloAPI.Migrations
                     b.Property<int?>("RangeObservationFrequency")
                         .HasColumnType("integer");
 
+                    b.Property<int>("StockId")
+                        .HasColumnType("integer");
+
                     b.Property<double>("Strike")
                         .HasColumnType("double precision");
 
@@ -77,6 +121,8 @@ namespace MonteCarloAPI.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
+
+                    b.HasIndex("StockId");
 
                     b.ToTable("Options");
                 });
@@ -126,6 +172,9 @@ namespace MonteCarloAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("AssetType")
+                        .HasColumnType("integer");
+
                     b.Property<double>("AverageCost")
                         .HasColumnType("double precision");
 
@@ -140,10 +189,13 @@ namespace MonteCarloAPI.Migrations
                     b.Property<int>("NetQuantity")
                         .HasColumnType("integer");
 
-                    b.Property<int>("OptionId")
+                    b.Property<int?>("OptionId")
                         .HasColumnType("integer");
 
                     b.Property<int>("PortfolioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StockId")
                         .HasColumnType("integer");
 
                     b.Property<double>("TotalCost")
@@ -155,8 +207,15 @@ namespace MonteCarloAPI.Migrations
 
                     b.HasIndex("PortfolioId");
 
+                    b.HasIndex("StockId");
+
                     b.HasIndex("PortfolioId", "OptionId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"OptionId\" IS NOT NULL");
+
+                    b.HasIndex("PortfolioId", "StockId")
+                        .IsUnique()
+                        .HasFilter("\"StockId\" IS NOT NULL");
 
                     b.ToTable("Positions");
                 });
@@ -239,7 +298,7 @@ namespace MonteCarloAPI.Migrations
                     b.ToTable("PricingHistory");
                 });
 
-            modelBuilder.Entity("MonteCarloAPI.Data.TradeEntity", b =>
+            modelBuilder.Entity("MonteCarloAPI.Data.StockEntity", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -252,11 +311,62 @@ namespace MonteCarloAPI.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<double>("CurrentPrice")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ExchangeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Ticker")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExchangeId");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("Ticker", "ExchangeId")
+                        .IsUnique();
+
+                    b.ToTable("Stocks");
+                });
+
+            modelBuilder.Entity("MonteCarloAPI.Data.TradeEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssetType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<int>("OptionId")
+                    b.Property<int?>("OptionId")
                         .HasColumnType("integer");
 
                     b.Property<int>("PortfolioId")
@@ -266,6 +376,9 @@ namespace MonteCarloAPI.Migrations
                         .HasColumnType("double precision");
 
                     b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StockId")
                         .HasColumnType("integer");
 
                     b.Property<double>("TotalCost")
@@ -283,6 +396,8 @@ namespace MonteCarloAPI.Migrations
 
                     b.HasIndex("PortfolioId");
 
+                    b.HasIndex("StockId");
+
                     b.HasIndex("TradeDate");
 
                     b.HasIndex("PortfolioId", "TradeDate");
@@ -290,13 +405,23 @@ namespace MonteCarloAPI.Migrations
                     b.ToTable("Trades");
                 });
 
+            modelBuilder.Entity("MonteCarloAPI.Data.OptionEntity", b =>
+                {
+                    b.HasOne("MonteCarloAPI.Data.StockEntity", "Stock")
+                        .WithMany("Options")
+                        .HasForeignKey("StockId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Stock");
+                });
+
             modelBuilder.Entity("MonteCarloAPI.Data.PositionEntity", b =>
                 {
                     b.HasOne("MonteCarloAPI.Data.OptionEntity", "Option")
                         .WithMany()
                         .HasForeignKey("OptionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MonteCarloAPI.Data.PortfolioEntity", "Portfolio")
                         .WithMany("Positions")
@@ -304,9 +429,16 @@ namespace MonteCarloAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MonteCarloAPI.Data.StockEntity", "Stock")
+                        .WithMany()
+                        .HasForeignKey("StockId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Option");
 
                     b.Navigation("Portfolio");
+
+                    b.Navigation("Stock");
                 });
 
             modelBuilder.Entity("MonteCarloAPI.Data.PricingHistoryEntity", b =>
@@ -320,13 +452,23 @@ namespace MonteCarloAPI.Migrations
                     b.Navigation("Option");
                 });
 
+            modelBuilder.Entity("MonteCarloAPI.Data.StockEntity", b =>
+                {
+                    b.HasOne("MonteCarloAPI.Data.ExchangeEntity", "Exchange")
+                        .WithMany("Stocks")
+                        .HasForeignKey("ExchangeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Exchange");
+                });
+
             modelBuilder.Entity("MonteCarloAPI.Data.TradeEntity", b =>
                 {
                     b.HasOne("MonteCarloAPI.Data.OptionEntity", "Option")
                         .WithMany()
                         .HasForeignKey("OptionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MonteCarloAPI.Data.PortfolioEntity", "Portfolio")
                         .WithMany("Trades")
@@ -334,9 +476,21 @@ namespace MonteCarloAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MonteCarloAPI.Data.StockEntity", "Stock")
+                        .WithMany()
+                        .HasForeignKey("StockId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Option");
 
                     b.Navigation("Portfolio");
+
+                    b.Navigation("Stock");
+                });
+
+            modelBuilder.Entity("MonteCarloAPI.Data.ExchangeEntity", b =>
+                {
+                    b.Navigation("Stocks");
                 });
 
             modelBuilder.Entity("MonteCarloAPI.Data.PortfolioEntity", b =>
@@ -344,6 +498,11 @@ namespace MonteCarloAPI.Migrations
                     b.Navigation("Positions");
 
                     b.Navigation("Trades");
+                });
+
+            modelBuilder.Entity("MonteCarloAPI.Data.StockEntity", b =>
+                {
+                    b.Navigation("Options");
                 });
 #pragma warning restore 612, 618
         }
