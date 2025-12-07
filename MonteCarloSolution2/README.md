@@ -50,30 +50,28 @@ Create a PostgreSQL database:
 CREATE DATABASE montecarlo_dev;
 ```
 
-### 3. Configure API Keys
-
-Update `MonteCarloAPI/appsettings.Development.json`:
+Then update the connection string in `MonteCarloAPI/appsettings.Development.json` with your PostgreSQL username (and password if you have one):
 
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=montecarlo_dev;Username=your_username;Password=your_password"
-  },
-  "Alpaca": {
-    "ApiKey": "your_alpaca_api_key",
-    "ApiSecret": "your_alpaca_api_secret"
   }
 }
 ```
 
-### 4. Run Database Migrations
+> **Note:** Alpaca API keys are already configured in `appsettings.json` for paper trading.
+
+### 3. Run Database Migrations
+
+This will create all tables and seed demo data (20 stocks, 1 portfolio, 6 sample options with trades):
 
 ```bash
 cd MonteCarloAPI
 dotnet ef database update
 ```
 
-### 5. Run the Application
+### 4. Run the Application
 
 ```bash
 dotnet run
